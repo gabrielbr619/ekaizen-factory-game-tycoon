@@ -21,6 +21,7 @@ from app.persistence import GameRepository
 
 SECRET = os.getenv("SESSION_SECRET", "dev-secret-change-me")
 DB_PATH = Path(os.getenv("DATABASE_PATH", "data/factory-game.sqlite3"))
+COOKIE_SECURE = os.getenv("SESSION_COOKIE_SECURE", "false").lower() in {"1", "true", "yes"}
 
 app = FastAPI(title="eKaizen Factory Game Tycoon API")
 app.add_middleware(
@@ -76,6 +77,7 @@ def set_session_cookie(response: Response, game_id: str) -> None:
         sign_session(game_id, SECRET),
         httponly=True,
         samesite="lax",
+        secure=COOKIE_SECURE,
     )
 
 

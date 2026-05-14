@@ -8,6 +8,7 @@ services:
     environment:
       DATABASE_PATH: /data/factory-game.sqlite3
       SESSION_SECRET: ${SESSION_SECRET:?Set SESSION_SECRET in .env before starting production}
+      SESSION_COOKIE_SECURE: "true"
     volumes:
       - factory_game_prod_data:/data
     networks:
