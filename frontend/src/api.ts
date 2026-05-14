@@ -7,7 +7,6 @@ import {
   gameStateSchema,
   hallOfKaizenSchema,
 } from './types'
-import { createMockApi } from './mocks/mockApi'
 
 const apiBaseUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 const errorPayloadSchema = z.object({ detail: z.string() })
@@ -61,50 +60,6 @@ export function createHttpApi(): GameApi {
         credentials: 'include',
       })
       return hallOfKaizenSchema.parse(await parseJson(response))
-    },
-  }
-}
-
-export function createResilientApi(): GameApi {
-  const httpApi = createHttpApi()
-  const mockApi = createMockApi()
-  let usingMock = false
-
-  return {
-    async startGame(seed?: number): Promise<GameState> {
-      if (usingMock) {
-        return mockApi.startGame(seed)
-      }
-      try {
-        return await httpApi.startGame(seed)
-      } catch {
-        usingMock = true
-        return mockApi.startGame(seed)
-      }
-    },
-
-    async sendCommand(gameId: string, payload: CommandPayload): Promise<GameState> {
-      if (usingMock) {
-        return mockApi.sendCommand(gameId, payload)
-      }
-      try {
-        return await httpApi.sendCommand(gameId, payload)
-      } catch {
-        usingMock = true
-        return mockApi.sendCommand(gameId, payload)
-      }
-    },
-
-    async loadHallOfKaizen(gameId: string): Promise<HallOfKaizen> {
-      if (usingMock) {
-        return mockApi.loadHallOfKaizen(gameId)
-      }
-      try {
-        return await httpApi.loadHallOfKaizen(gameId)
-      } catch {
-        usingMock = true
-        return mockApi.loadHallOfKaizen(gameId)
-      }
     },
   }
 }
