@@ -301,6 +301,12 @@ def test_oee_availability_drops_when_dev_moral_is_below_burnout_threshold() -> N
     assert calculate_oee(game, delivered=0, delivered_on_time=0, production_bugs=0) == 0.667
 
 
+def test_oee_quality_drops_when_production_bug_emerges_without_delivery() -> None:
+    game = create_game(123)
+
+    assert calculate_oee(game, delivered=0, delivered_on_time=0, production_bugs=1) == 0.0
+
+
 def test_heijunka_bonus_requires_consistency() -> None:
     game = create_game(123)
     game.active_kaizens.append(KaizenType.HEIJUNKA)

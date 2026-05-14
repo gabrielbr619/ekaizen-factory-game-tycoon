@@ -25,7 +25,10 @@ def calculate_oee(
         return 0.0
     availability = sum(1 for dev in active_devs if dev.moral >= 30) / len(active_devs)
     performance = 1.0 if delivered == 0 else min(1.0, delivered_on_time / delivered)
-    quality = 1.0 if delivered == 0 else max(0.0, (delivered - production_bugs) / delivered)
+    if delivered == 0:
+        quality = 0.0 if production_bugs > 0 else 1.0
+    else:
+        quality = max(0.0, (delivered - production_bugs) / delivered)
     return round(availability * performance * quality, 3)
 
 
