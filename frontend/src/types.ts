@@ -172,4 +172,5 @@ export interface GameApi {
   startGame(seed?: number): Promise<GameState>
   sendCommand(gameId: string, payload: CommandPayload): Promise<GameState>
   loadHallOfKaizen(gameId: string): Promise<HallOfKaizen>
+  subscribeGame(gameId: string, onState: (state: GameState) => void, onError: () => void): () => void
 }

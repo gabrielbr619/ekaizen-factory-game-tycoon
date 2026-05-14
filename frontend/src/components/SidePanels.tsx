@@ -35,7 +35,7 @@ type MetricProps = {
 
 function Metric({ label, value, title }: MetricProps) {
   return (
-    <div className="metric" title={title}>
+    <div aria-label={`${label}: ${value}. ${title}`} className="metric" role="group" title={title}>
       <span>{label}</span>
       <strong>{value}</strong>
     </div>
@@ -71,7 +71,7 @@ export function EventsPanel({ events }: EventsPanelProps) {
     <section className="panel" aria-label="Eventos">
       <PanelTitle icon={<Activity aria-hidden="true" />} title="Eventos" />
       <ul className="event-list">
-        {events.length === 0 ? <li>Sem evento pendente.</li> : events.map((event) => <li key={event}>{event}</li>)}
+        {events.length === 0 ? <li>Sem evento recente.</li> : events.map((event) => <li key={event}>{event}</li>)}
       </ul>
     </section>
   )

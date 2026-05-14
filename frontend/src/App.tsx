@@ -73,6 +73,19 @@ export function App({ api }: AppProps) {
     }
   }, [api])
 
+  useEffect(() => {
+    if (game === null || game.id.startsWith('mock-')) return undefined
+    return api.subscribeGame(
+      game.id,
+      (state) => {
+        setGame(state)
+      },
+      () => {
+        setNotice('Conexao em tempo real encerrada; comandos continuam sincronizando.')
+      },
+    )
+  }, [api, game?.id])
+
   const selectedCard = useMemo(
     () => game?.cards.find((card) => card.id === selectedCardId) ?? null,
     [game, selectedCardId],

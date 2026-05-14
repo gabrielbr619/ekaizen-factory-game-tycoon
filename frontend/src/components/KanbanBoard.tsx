@@ -45,7 +45,7 @@ export function KanbanBoard({ game, selectedCardId, onSelectCard, onInvalidDrop,
     <section className="kanban-area" aria-label="Kanban">
       <div className="section-heading">
         <PanelTitle icon={<KanbanSquare aria-hidden="true" />} title="Kanban operacional" />
-        <span>Fluxo sequencial: Backlog → Analise → Dev → QA → Done</span>
+        <span>Fluxo sequencial: Backlog → Analise → Dev → QA; Done e liberado no fechamento da sprint</span>
       </div>
       <div className="kanban-columns">
         {columns.map((column) => {
@@ -130,6 +130,9 @@ function WorkCard({ card, game, selected, dragging, onSelect, onDragStart, onDra
   })
   const progress = `${card.progress}/${card.points_total}`
   const canMove = nextColumn(card.column) !== null
+  const movementHint = canMove
+    ? 'Arraste para a proxima coluna ou use Mover.'
+    : 'QA e Done sao resolvidos no fechamento da sprint.'
   return (
     <article
       aria-label={`Card ${card.title}`}
@@ -142,7 +145,7 @@ function WorkCard({ card, game, selected, dragging, onSelect, onDragStart, onDra
         className="card-select"
         aria-label={`Selecionar card ${card.title}`}
         onClick={onSelect}
-        title={`Selecionar ${card.title}. Arraste para a proxima coluna ou use Mover. Requisitos: ${card.required_specialties.join(', ')}. Valor ${currencyFormatter.format(card.value)}. Prazo sprint ${card.deadline_sprint}. Progresso ${progress}.`}
+        title={`Selecionar ${card.title}. ${movementHint} Requisitos: ${card.required_specialties.join(', ')}. Valor ${currencyFormatter.format(card.value)}. Prazo sprint ${card.deadline_sprint}. Progresso ${progress}.`}
         type="button"
       >
         <span className="card-type">{card.card_type}</span>
@@ -159,7 +162,17 @@ function WorkCard({ card, game, selected, dragging, onSelect, onDragStart, onDra
       <div className="assigned-list">
         {assigned.length === 0 ? <span>Sem dev</span> : assigned.map((name) => <span key={name}>{name}</span>)}
       </div>
-      <button className="move-button" disabled={!canMove} onClick={onMove} title={canMove ? `Mover ${card.title} para ${columnLabel(nextColumn(card.column) ?? card.column)}` : 'Card ja esta em Done'} type="button">
+      <button
+        className="move-button"
+        disabled={!canMove}
+        onClick={onMove}
+        title={
+          canMove
+            ? `Mover ${card.title} para ${columnLabel(nextColumn(card.column) ?? card.column)}`
+            : 'QA e Done sao resolvidos no fechamento da sprint'
+        }
+        type="button"
+      >
         Mover
         <ChevronRight aria-hidden="true" />
       </button>

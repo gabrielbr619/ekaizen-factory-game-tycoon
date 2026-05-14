@@ -41,6 +41,10 @@ export function createMockApi(): GameApi {
       await wait()
       return createMockHall(state)
     },
+
+    subscribeGame(): () => void {
+      return () => undefined
+    },
   }
 }
 

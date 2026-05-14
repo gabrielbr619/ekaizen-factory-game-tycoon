@@ -61,5 +61,20 @@ export function createHttpApi(): GameApi {
       })
       return hallOfKaizenSchema.parse(await parseJson(response))
     },
+
+    subscribeGame(gameId: string, onState: (state: GameState) => void, onError: () => void): () => void {
+      const source = new EventSource(`${apiBaseUrl}/games/${gameId}/events`, {
+        withCredentials: true,
+      })
+      source.addEventListener('state', (event) => {
+        const parsed = gameStateSchema.safeParse(JSON.parse(event.data))
+        if (parsed.success) onState(parsed.data)
+      })
+      source.onerror = () => {
+        onError()
+        source.close()
+      }
+      return () => source.close()
+    },
   }
 }

@@ -1,3 +1,4 @@
+import { useEffect, useRef, type KeyboardEvent } from 'react'
 import { AlertTriangle, Award, Gauge, KanbanSquare, Play, Sparkles, Users } from 'lucide-react'
 
 type OnboardingPanelProps = {
@@ -6,9 +7,62 @@ type OnboardingPanelProps = {
 }
 
 export function OnboardingPanel({ sprint, onDismiss }: OnboardingPanelProps) {
+  const dialogRef = useRef<HTMLDivElement>(null)
+  const startButtonRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    const previousFocus = document.activeElement
+    startButtonRef.current?.focus()
+
+    return () => {
+      if (previousFocus instanceof HTMLElement) {
+        previousFocus.focus()
+      }
+    }
+  }, [])
+
+  function handleKeyDown(event: KeyboardEvent<HTMLElement>) {
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      onDismiss()
+      return
+    }
+
+    if (event.key !== 'Tab' || dialogRef.current === null) return
+
+    const focusableElements = Array.from(
+      dialogRef.current.querySelectorAll<HTMLElement>(
+        'button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])',
+      ),
+    )
+
+    if (focusableElements.length === 0) return
+
+    const firstElement = focusableElements[0]
+    const lastElement = focusableElements[focusableElements.length - 1]
+    const activeElement = document.activeElement
+
+    if (event.shiftKey && activeElement === firstElement) {
+      event.preventDefault()
+      lastElement.focus()
+    } else if (!event.shiftKey && activeElement === lastElement) {
+      event.preventDefault()
+      firstElement.focus()
+    } else if (activeElement instanceof Node && !dialogRef.current.contains(activeElement)) {
+      event.preventDefault()
+      firstElement.focus()
+    }
+  }
+
   return (
-    <section className="onboarding-backdrop" aria-labelledby="onboarding-title" aria-modal="true" role="dialog">
-      <div className="onboarding-dialog">
+    <section
+      className="onboarding-backdrop"
+      aria-labelledby="onboarding-title"
+      aria-modal="true"
+      onKeyDown={handleKeyDown}
+      role="dialog"
+    >
+      <div className="onboarding-dialog" ref={dialogRef}>
         <div className="onboarding-header">
           <div>
             <span className="eyebrow">Sprint {sprint} · guia rapido</span>
@@ -39,7 +93,10 @@ export function OnboardingPanel({ sprint, onDismiss }: OnboardingPanelProps) {
               <KanbanSquare aria-hidden="true" />
               Fluxo Kanban
             </h3>
-            <p>Puxe demanda do Backlog para Analise, Dev, QA e Done. Respeite WIP e use o botao Mover em cada card.</p>
+            <p>
+              Puxe demanda do Backlog para Analise, Dev e QA. Depois encerre a sprint para o backend checar qualidade e
+              liberar Done.
+            </p>
           </section>
           <section className="tutorial-section">
             <h3>
@@ -80,7 +137,13 @@ export function OnboardingPanel({ sprint, onDismiss }: OnboardingPanelProps) {
 
         <div className="onboarding-footer">
           <p>O jogo ja esta carregado atras deste painel. Voce pode reabrir este tutorial pela aba Tutorial.</p>
-          <button className="primary-action" onClick={onDismiss} title="Fechar tutorial inicial e comecar a jogar" type="button">
+          <button
+            className="primary-action"
+            onClick={onDismiss}
+            ref={startButtonRef}
+            title="Fechar tutorial inicial e comecar a jogar"
+            type="button"
+          >
             <Play aria-hidden="true" />
             Começar partida
           </button>

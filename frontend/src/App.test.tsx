@@ -13,6 +13,7 @@ function createTestApi(state = createMockState()): GameApi {
     startGame: vi.fn(async (): Promise<GameState> => currentState),
     sendCommand: vi.fn(async (_gameId: string, _payload: CommandPayload): Promise<GameState> => currentState),
     loadHallOfKaizen: vi.fn(async (): Promise<HallOfKaizen> => hall),
+    subscribeGame: vi.fn(() => () => undefined),
   }
 }
 
@@ -71,7 +72,28 @@ describe('Factory game UI', () => {
     expect(within(tutorial).getByText(/software house viva/i)).toBeInTheDocument()
     expect(within(tutorial).getByText(/Hall of Kaizen com veredito positivo/i)).toBeInTheDocument()
     expect(within(tutorial).getByRole('button', { name: 'Começar partida' })).toBeInTheDocument()
+    await waitFor(() => expect(within(tutorial).getByRole('button', { name: 'Começar partida' })).toHaveFocus())
     expect(screen.getByRole('heading', { name: 'Kanban operacional' })).toBeInTheDocument()
+  })
+
+  it('supports keyboard dismissal and a simple focus trap in the tutorial', async () => {
+    const user = userEvent.setup()
+    render(<App api={createTestApi()} />)
+
+    const tutorial = await screen.findByRole('dialog', { name: 'Tutorial inicial' })
+    const closeButton = within(tutorial).getByRole('button', { name: 'Fechar' })
+    const startButton = within(tutorial).getByRole('button', { name: 'Começar partida' })
+
+    await waitFor(() => expect(startButton).toHaveFocus())
+
+    await user.tab()
+    expect(closeButton).toHaveFocus()
+
+    await user.tab({ shift: true })
+    expect(startButton).toHaveFocus()
+
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('dialog', { name: 'Tutorial inicial' })).not.toBeInTheDocument()
   })
 
   it('keeps win instructions in the tutorial instead of fixed operation chrome', async () => {
@@ -181,6 +203,15 @@ describe('Factory game UI', () => {
     expect(screen.getByRole('region', { name: 'Status' })).toHaveTextContent(
       'Fluxo sequencial: mova cards apenas para a proxima coluna.',
     )
+  })
+
+  it('keeps QA completion as sprint processing instead of manual Done movement', async () => {
+    render(<App api={createTestApi()} />)
+
+    const kanban = await screen.findByRole('region', { name: 'Kanban' })
+    const qaCard = within(kanban).getByRole('article', { name: 'Card Bug critico em apontamento' })
+
+    expect(within(qaCard).getByRole('button', { name: /Mover/i })).toBeDisabled()
   })
 
   it('lets the player remove a developer already allocated to the selected card', async () => {

@@ -4,7 +4,6 @@ export function nextColumn(column: Column): Column | null {
   if (column === 'backlog') return 'analysis'
   if (column === 'analysis') return 'development'
   if (column === 'development') return 'qa'
-  if (column === 'qa') return 'done'
   return null
 }
 
@@ -41,6 +40,19 @@ export function kaizenLabel(kaizen: KaizenType): string {
   if (kaizen === 'marketing') return 'Marketing'
   if (kaizen === 'devops-culture') return 'Cultura DevOps'
   return 'Heijunka'
+}
+
+export function kaizenCost(kaizen: KaizenType): number {
+  if (
+    kaizen === 'qa-automation' ||
+    kaizen === 'mentoring' ||
+    kaizen === 'marketing' ||
+    kaizen === 'devops-culture' ||
+    kaizen === 'heijunka'
+  ) {
+    return 2
+  }
+  return 1
 }
 
 export function specialtyBadge(specialty: string): string {
