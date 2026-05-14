@@ -40,7 +40,7 @@ URLs locais:
 
 ## Como rodar com Docker Compose
 
-Este e o caminho recomendado para avaliacao local: um comando sobe frontend, backend e persistencia, e o jogo fica disponivel em `http://localhost`.
+Este e o caminho recomendado para avaliacao local: um comando sobe frontend, backend e persistencia, e o jogo fica disponivel em `http://localhost`. O banco relacional escolhido e SQLite; ele roda embutido no backend e persiste em volume Docker, sem exigir um container separado de banco.
 
 Pre-requisitos:
 
@@ -106,7 +106,7 @@ O endpoint de eventos usa Server-Sent Events como canal minimo de tempo real. El
 
 - **Modelo relacional normalizado**: a persistencia usa SQLite relacional com snapshot de estado e comandos idempotentes. A evolucao natural e normalizar partidas, cards, devs, clientes, eventos e comandos para consultas analiticas mais ricas.
 - **Eventos aleatorios com efeitos agregados**: cliente urgente, pedido de aumento, bug retroativo, headhunter, conferencia, auditoria OEE, tendencia de mercado e indicacao alteram o estado da partida e aparecem via Andon/historico. O tradeoff e que algumas respostas ainda sao agregadas no processamento de sprint, em vez de comandos dedicados para cada evento.
-- **Drag and drop completo**: comandos por botoes acessiveis sao aceitaveis quando o fluxo e claro e enviado ao servidor. A evolucao natural e adicionar drag and drop preservando os mesmos comandos backend.
+- **Drag and drop avancado**: o Kanban ja aceita arrastar cards para a proxima coluna valida e tambem oferece botoes acessiveis que enviam os mesmos comandos ao servidor. Ficaram fora apenas interacoes mais avancadas, como reorder interno, suporte touch/mobile completo e atalhos de produtividade.
 - **Concorrencia na mesma partida**: o jogo e single-player por sessao e suporta multiplas partidas em paralelo por `game_id` e cookie assinado. Nao tenta resolver edicao concorrente da mesma partida em varias abas como um jogo multiplayer.
 
 ## Como rodar verificacoes locais
