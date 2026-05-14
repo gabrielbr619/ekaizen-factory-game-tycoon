@@ -1271,10 +1271,22 @@ svg {
   gap: 10px;
 }
 
-.hall-header svg {
+.hall-header > div > svg {
   color: var(--amber);
   height: 32px;
   width: 32px;
+}
+
+.hall-header button {
+  background: var(--surface-2);
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+
+.hall-header button svg {
+  color: currentColor;
+  height: 16px;
+  width: 16px;
 }
 
 .hall-header h2 {
