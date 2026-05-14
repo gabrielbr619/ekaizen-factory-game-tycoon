@@ -1,11 +1,14 @@
 :root {
-  --bg: #eef2f5;
+  --bg: #e8edf3;
   --surface: #ffffff;
-  --surface-2: #f7f9fb;
+  --surface-2: #f6f8fb;
+  --surface-3: #eef3f8;
   --ink: #111827;
   --muted: #5b6675;
+  --muted-strong: #344054;
   --line: #d8dee6;
   --line-strong: #b7c1ce;
+  --focus: rgb(29 95 209 / 35%);
   --green: #0f8a5f;
   --green-bg: #e8f7f0;
   --red: #b42318;
@@ -15,7 +18,8 @@
   --blue: #1d5fd1;
   --blue-bg: #eaf1ff;
   --purple: #7842b8;
-  --shadow: 0 12px 30px rgb(31 41 55 / 10%);
+  --shadow: 0 14px 32px rgb(31 41 55 / 11%);
+  --shadow-soft: 0 1px 0 rgb(17 24 39 / 4%);
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   color: var(--ink);
@@ -25,11 +29,39 @@
   -webkit-font-smoothing: antialiased;
 }
 
+[data-theme="dark"] {
+  --bg: #0b1117;
+  --surface: #111a24;
+  --surface-2: #162231;
+  --surface-3: #1c2a3a;
+  --ink: #edf4ff;
+  --muted: #a8b3c2;
+  --muted-strong: #d5deea;
+  --line: #263648;
+  --line-strong: #40536b;
+  --focus: rgb(95 165 250 / 42%);
+  --green: #4bd0a0;
+  --green-bg: #12362a;
+  --red: #ff8d86;
+  --red-bg: #461c1a;
+  --amber: #f2b755;
+  --amber-bg: #412d12;
+  --blue: #8cbcff;
+  --blue-bg: #132c53;
+  --purple: #c7a7ff;
+  --shadow: 0 16px 40px rgb(0 0 0 / 32%);
+  --shadow-soft: 0 1px 0 rgb(255 255 255 / 4%);
+  color-scheme: dark;
+}
+
 * {
   box-sizing: border-box;
 }
 
 body {
+  background:
+    radial-gradient(circle at 20% 0%, rgb(29 95 209 / 8%), transparent 32%),
+    var(--bg);
   margin: 0;
 }
 
@@ -38,7 +70,7 @@ button {
 }
 
 button:focus-visible {
-  outline: 3px solid rgb(29 95 209 / 35%);
+  outline: 3px solid var(--focus);
   outline-offset: 2px;
 }
 
@@ -57,9 +89,9 @@ button:focus-visible {
 .factory-app {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   min-height: 100vh;
-  padding: 10px;
+  padding: 8px;
 }
 
 .top-bar,
@@ -77,10 +109,11 @@ button:focus-visible {
 
 .top-bar {
   align-items: center;
+  border-color: var(--line-strong);
   display: grid;
-  gap: 12px;
+  gap: 10px;
   grid-template-columns: minmax(250px, 1.1fr) minmax(460px, 2fr) auto;
-  padding: 10px;
+  padding: 9px 10px;
 }
 
 .brand-block {
@@ -92,7 +125,7 @@ button:focus-visible {
 
 .brand-mark {
   align-items: center;
-  background: var(--ink);
+  background: linear-gradient(135deg, var(--ink), var(--blue));
   border-radius: 6px;
   color: white;
   display: inline-flex;
@@ -132,6 +165,7 @@ small {
   background: var(--surface-2);
   border: 1px solid var(--line);
   border-radius: 6px;
+  box-shadow: var(--shadow-soft);
   min-width: 0;
   padding: 7px 8px;
 }
@@ -147,18 +181,22 @@ small {
 .metric strong {
   display: block;
   font-size: 15px;
+  font-variant-numeric: tabular-nums;
   line-height: 1.25;
   overflow-wrap: anywhere;
 }
 
 .kpi-good {
+  background: color-mix(in srgb, var(--green-bg) 45%, var(--surface-2));
   border-color: rgb(15 138 95 / 35%);
 }
 
 .kpi-bad {
+  background: color-mix(in srgb, var(--red-bg) 45%, var(--surface-2));
   border-color: rgb(180 35 24 / 35%);
 }
 
+.ui-button,
 .icon-button,
 .primary-action,
 .secondary-action,
@@ -182,6 +220,56 @@ small {
   justify-content: center;
   min-height: 32px;
   padding: 7px 10px;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease,
+    transform 120ms ease;
+}
+
+.ui-button:hover:not(:disabled),
+.primary-action:hover:not(:disabled),
+.secondary-action:hover:not(:disabled),
+.view-tabs button:hover:not(:disabled),
+.move-button:hover:not(:disabled),
+.tiny-action:hover:not(:disabled),
+.candidate-list button:hover:not(:disabled),
+.kaizen-grid button:hover:not(:disabled),
+.hall-header button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.ui-button-primary,
+.primary-action {
+  background: var(--blue);
+  border-color: var(--blue);
+}
+
+.ui-button-secondary,
+.secondary-action {
+  background: var(--surface);
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+
+.ui-button-ghost,
+.view-tabs button {
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+}
+
+.ui-button-icon,
+.icon-button {
+  background: var(--surface-2);
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+
+.ui-button-danger,
+.confirm-actions button:first-of-type {
+  background: var(--red);
+  border-color: var(--red);
 }
 
 .top-actions {
@@ -220,6 +308,7 @@ svg {
 
 .andon-title,
 .panel-title {
+  color: var(--muted-strong);
   font-size: 13px;
   font-weight: 800;
 }
@@ -274,11 +363,12 @@ svg {
 .view-tabs {
   display: flex;
   gap: 6px;
-  padding: 6px;
+  padding: 5px;
   width: max-content;
 }
 
 .status-strip {
+  border-left: 4px solid var(--blue);
   color: var(--muted);
   font-size: 12px;
   padding: 7px 10px;
@@ -287,12 +377,6 @@ svg {
 .status-strip strong {
   color: var(--ink);
   font-size: 12px;
-}
-
-.view-tabs button {
-  background: transparent;
-  border-color: transparent;
-  color: var(--muted);
 }
 
 .view-tabs button.active {
@@ -304,8 +388,8 @@ svg {
 .ops-grid {
   display: grid;
   flex: 1;
-  gap: 10px;
-  grid-template-columns: 250px minmax(580px, 1fr) 300px;
+  gap: 8px;
+  grid-template-columns: 248px minmax(580px, 1fr) 296px;
   min-height: 0;
 }
 
@@ -321,12 +405,12 @@ svg {
 .panel,
 .kanban-area,
 .hall-panel {
-  padding: 10px;
+  padding: 9px;
 }
 
 .panel-title {
   font-size: 14px;
-  margin-bottom: 8px;
+  margin-bottom: 7px;
 }
 
 .panel-title-row {
@@ -339,7 +423,7 @@ svg {
 }
 
 .panel-title-row button {
-  background: white;
+  background: var(--surface);
   border: 1px solid var(--line-strong);
   border-radius: 6px;
   color: var(--ink);
@@ -394,6 +478,7 @@ svg {
   background: var(--surface-2);
   border: 1px solid var(--line);
   border-radius: 6px;
+  box-shadow: var(--shadow-soft);
   display: flex;
   justify-content: space-between;
   padding: 8px;
@@ -420,8 +505,9 @@ svg {
 .event-list li {
   background: var(--amber-bg);
   border-radius: 6px;
-  color: #704000;
+  color: var(--amber);
   font-size: 12px;
+  line-height: 1.35;
   padding: 8px;
 }
 
@@ -445,7 +531,7 @@ svg {
 }
 
 .kanban-column {
-  background: var(--surface-2);
+  background: linear-gradient(180deg, var(--surface-2), var(--surface-3));
   border: 1px solid var(--line);
   border-radius: 8px;
   display: flex;
@@ -460,13 +546,13 @@ svg {
 }
 
 .kanban-column.drop-valid {
-  background: #f1fbf7;
+  background: var(--green-bg);
   border-color: rgb(15 138 95 / 55%);
   box-shadow: inset 0 0 0 2px rgb(15 138 95 / 16%);
 }
 
 .kanban-column.drop-invalid {
-  background: #fff6f4;
+  background: var(--red-bg);
   border-color: rgb(180 35 24 / 45%);
   box-shadow: inset 0 0 0 2px rgb(180 35 24 / 12%);
 }
@@ -485,7 +571,7 @@ svg {
 }
 
 .kanban-column header span {
-  background: white;
+  background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 999px;
   color: var(--muted);
@@ -503,7 +589,7 @@ svg {
 }
 
 .work-card {
-  background: white;
+  background: var(--surface);
   border: 1px solid var(--line);
   border-left: 4px solid var(--blue);
   border-radius: 7px;
@@ -519,6 +605,7 @@ svg {
 }
 
 .work-card.selected {
+  border-color: rgb(29 95 209 / 42%);
   box-shadow: 0 0 0 2px rgb(29 95 209 / 28%);
 }
 
@@ -568,7 +655,7 @@ svg {
 }
 
 .progress-track {
-  background: #e6ebf0;
+  background: var(--surface-3);
   border-radius: 999px;
   height: 7px;
   overflow: hidden;
@@ -594,7 +681,7 @@ svg {
 }
 
 .move-button {
-  background: white;
+  background: var(--surface);
   border-color: var(--line-strong);
   color: var(--ink);
   width: 100%;
@@ -620,6 +707,15 @@ svg {
   min-width: 0;
   padding: 6px 7px;
   text-align: left;
+  transition:
+    border-color 120ms ease,
+    box-shadow 120ms ease,
+    transform 120ms ease;
+}
+
+.dev-select:hover {
+  border-color: var(--line-strong);
+  transform: translateY(-1px);
 }
 
 .dev-row.selected .dev-select {
@@ -657,7 +753,7 @@ svg {
 }
 
 .spec-po {
-  background: #f1e8ff;
+  background: color-mix(in srgb, var(--purple) 14%, var(--surface-2));
   border-color: var(--purple);
   color: var(--purple);
 }
@@ -707,7 +803,7 @@ svg {
 
 .dev-row .tiny-action {
   align-self: center;
-  background: white;
+  background: var(--surface);
   border-color: var(--line-strong);
   color: var(--ink);
   font-size: 11px;
@@ -743,7 +839,7 @@ svg {
 }
 
 .kaizen-grid button {
-  background: white;
+  background: var(--surface);
   border-color: var(--line-strong);
   color: var(--ink);
   min-height: 34px;
@@ -762,14 +858,14 @@ svg {
 }
 
 .secondary-action {
-  background: white;
+  background: var(--surface);
   border-color: var(--line-strong);
   color: var(--ink);
 }
 
 .onboarding-backdrop {
   align-items: center;
-  background: rgb(17 24 39 / 48%);
+  background: rgb(6 10 16 / 56%);
   display: flex;
   inset: 0;
   justify-content: center;
@@ -782,7 +878,7 @@ svg {
   background: var(--surface);
   border: 1px solid var(--line-strong);
   border-radius: 8px;
-  box-shadow: 0 22px 55px rgb(17 24 39 / 28%);
+  box-shadow: 0 24px 60px rgb(0 0 0 / 32%);
   display: flex;
   flex-direction: column;
   max-height: min(760px, calc(100vh - 32px));
@@ -828,10 +924,25 @@ svg {
 }
 
 .tutorial-section {
+  background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 7px;
   min-width: 0;
   padding: 10px;
+}
+
+.tutorial-victory {
+  background: var(--green-bg);
+  border-color: rgb(15 138 95 / 28%);
+  grid-column: 1 / -1;
+}
+
+.tutorial-victory h3 {
+  color: var(--green);
+}
+
+.tutorial-victory p + p {
+  margin-top: 6px;
 }
 
 .tutorial-section h3 {
@@ -875,7 +986,7 @@ svg {
 }
 
 .confirm-actions button:last-of-type {
-  background: white;
+  background: var(--surface);
   border-color: var(--line-strong);
   color: var(--ink);
 }
