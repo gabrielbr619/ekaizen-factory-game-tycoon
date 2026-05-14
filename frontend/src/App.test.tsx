@@ -248,6 +248,40 @@ describe('Factory game UI', () => {
     expect(within(qaCard).getByRole('button', { name: /Mover/i })).toBeDisabled()
   })
 
+  it('surfaces backend Andons before confirming sprint processing', async () => {
+    const user = userEvent.setup()
+    const state = createMockState()
+    state.andon_alerts = [
+      {
+        severity: 'warning',
+        code: 'large-card-junior-alone',
+        message: 'Nina QA sozinho em card G (Pipeline de deploy) nao vai progredir.',
+      },
+      {
+        severity: 'warning',
+        code: 'large-card-pleno-no-mentor',
+        message: 'Pleno em card G (Pipeline de deploy) precisa de mentor Senior/God-tier.',
+      },
+      { severity: 'success', code: 'kaizen', message: 'Ha ponto de Kaizen disponivel.' },
+    ]
+    const api = createTestApi(state)
+    render(<App api={api} />)
+
+    await screen.findByRole('heading', { name: 'Kanban operacional' })
+    await user.click(screen.getByRole('button', { name: 'Encerrar sprint' }))
+
+    const warning = screen.getByRole('alert', { name: 'Riscos antes de encerrar sprint' })
+    expect(within(warning).getByText('Antes de encerrar')).toBeInTheDocument()
+    expect(within(warning).getByText(/Nina QA sozinho em card G/i)).toBeInTheDocument()
+    expect(within(warning).getByText(/precisa de mentor Senior\/God-tier/i)).toBeInTheDocument()
+    expect(within(warning).queryByText(/Kaizen disponivel/i)).not.toBeInTheDocument()
+    expect(api.sendCommand).not.toHaveBeenCalled()
+
+    await user.click(within(warning).getByRole('button', { name: 'Confirmar' }))
+
+    expect(api.sendCommand).toHaveBeenCalledWith('mock-4242', { type: 'process-sprint' })
+  })
+
   it('lets the player remove a developer already allocated to the selected card', async () => {
     const user = userEvent.setup()
     const api = createTestApi()

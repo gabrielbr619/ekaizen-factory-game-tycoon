@@ -1,6 +1,6 @@
 import { Moon, Play, RotateCcw, Sun } from 'lucide-react'
 import { currencyFormatter } from '../lib/formatters'
-import { type GameState } from '../types'
+import { type AndonAlert, type GameState } from '../types'
 import { Button } from './ui/Button'
 import { Kpi } from './Kpi'
 
@@ -8,6 +8,7 @@ export type ThemeMode = 'light' | 'dark'
 
 type TopBarProps = {
   game: GameState
+  sprintAlerts: AndonAlert[]
   clientReputation: number
   theme: ThemeMode
   busy: boolean
@@ -21,6 +22,7 @@ type TopBarProps = {
 
 export function TopBar({
   game,
+  sprintAlerts,
   clientReputation,
   theme,
   busy,
@@ -31,6 +33,8 @@ export function TopBar({
   onRestart,
   onToggleTheme,
 }: TopBarProps) {
+  const visibleSprintAlerts = sprintAlerts.filter((alert) => alert.severity !== 'success')
+
   return (
     <header className="top-bar">
       <div className="brand-block">
@@ -49,13 +53,29 @@ export function TopBar({
       </div>
       <div className="top-actions">
         {confirmSprint ? (
-          <div className="confirm-actions">
-            <Button disabled={busy} onClick={onConfirmSprint} title="Confirmar processamento da sprint no backend" variant="danger">
-              Confirmar
-            </Button>
-            <Button disabled={busy} onClick={onCancelSprint} title="Cancelar e continuar jogando a sprint atual" variant="secondary">
-              Cancelar
-            </Button>
+          <div className="confirm-sprint" role="alert" aria-live="assertive" aria-label="Riscos antes de encerrar sprint">
+            <div className="confirm-actions">
+              <Button disabled={busy} onClick={onConfirmSprint} title="Confirmar processamento da sprint no backend" variant="danger">
+                Confirmar
+              </Button>
+              <Button disabled={busy} onClick={onCancelSprint} title="Cancelar e continuar jogando a sprint atual" variant="secondary">
+                Cancelar
+              </Button>
+            </div>
+            <div className="sprint-risk-summary">
+              <strong>{visibleSprintAlerts.length > 0 ? 'Antes de encerrar' : 'Sem alertas bloqueantes'}</strong>
+              {visibleSprintAlerts.length > 0 ? (
+                <ul>
+                  {visibleSprintAlerts.map((alert, index) => (
+                    <li className={`sprint-risk sprint-risk-${alert.severity}`} key={`${alert.code}-${index}-${alert.message}`}>
+                      {alert.message}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p>O backend nao informou Andons ativos para esta sprint.</p>
+              )}
+            </div>
           </div>
         ) : (
           <Button disabled={busy} onClick={onRequestSprint} title="Encerrar sprint e processar custos, progresso, bugs e eventos" variant="primary">

@@ -165,6 +165,7 @@ export function App({ api }: AppProps) {
     <main className="factory-app">
       <TopBar
         game={game}
+        sprintAlerts={game.andon_alerts}
         clientReputation={clientReputation}
         theme={theme}
         busy={busy}
