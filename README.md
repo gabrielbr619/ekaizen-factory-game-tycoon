@@ -65,12 +65,11 @@ Mutações passam por `POST /games/{game_id}/commands` com `command_id` no corpo
 - **Nginx no frontend Docker**: o container do frontend serve os arquivos estaticos e faz proxy de `/healthz` e `/games` para o backend, permitindo abrir o jogo em `http://localhost`.
 - **SSE como tempo real minimo**: o endpoint `/games/{game_id}/events` existe para o canal de comunicacao em tempo real exigido pelo desafio.
 - **Estado de UI local com React state**: a interface usa estado local de tela porque o fluxo e single-player, baseado em comandos e sem compartilhamento complexo entre rotas. A evolucao natural seria Zustand caso o jogo ganhe multiplas telas independentes ou cache de sessoes.
-- **CI com comandos reais**: o workflow roda ruff, mypy, pytest, typecheck, testes frontend, build frontend e build Docker. Se alguma frente ainda estiver incompleta, a falha deve aparecer no pipeline em vez de ser escondida.
+- **CI com comandos reais**: o workflow roda ruff, mypy, pytest, typecheck, testes frontend, E2E Playwright, build frontend e build Docker. Se alguma frente ainda estiver incompleta, a falha deve aparecer no pipeline em vez de ser escondida.
 
 ## Fora de escopo ou pendente
 
 - Deploy publico ainda nao configurado; a URL acima deve ser preenchida antes do envio.
-- E2E Playwright ainda nao esta presente neste worktree. A cobertura automatizada atual fica em testes de dominio/API e componentes-chave do frontend.
 - A persistencia SQLite e relacional no arquivo de banco, mas o estado de jogo ainda e salvo como snapshot.
 - Algumas regras avancadas do PDF foram simplificadas para priorizar fluxo jogavel, determinismo e separacao backend/frontend dentro do prazo.
 
@@ -93,6 +92,7 @@ cd frontend
 npm ci
 npm run typecheck
 npm run test
+npm run e2e
 npm run build
 ```
 
