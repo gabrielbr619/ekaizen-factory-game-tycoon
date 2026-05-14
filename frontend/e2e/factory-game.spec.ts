@@ -6,7 +6,7 @@ test('plays a complete factory management flow', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'eKaizen Factory Game Tycoon' })).toBeVisible()
   await expect(page.getByRole('dialog', { name: 'Tutorial inicial' })).toBeVisible()
   await page.getByRole('button', { name: 'Começar partida' }).click()
-  await expect(page.getByLabel('Kanban')).toContainText('Backlog')
+  await expect(page.getByRole('region', { name: 'Kanban' })).toContainText('Backlog')
   await expect(page.getByRole('button', { name: /Encerrar sprint/ })).toBeVisible()
 
   for (let sprint = 0; sprint < 5; sprint += 1) {
