@@ -102,7 +102,7 @@ O endpoint de eventos usa Server-Sent Events como canal minimo de tempo real. El
 
 - **URL publica validada**: o PDF exige URL publica funcional no envio. Este README nao declara uma URL ate que ela seja validada com healthcheck, criacao de partida e fluxo basico online.
 - **Modelo relacional normalizado**: a persistencia usa SQLite relacional com snapshot de estado e comandos idempotentes. A evolucao natural e normalizar partidas, cards, devs, clientes, eventos e comandos para consultas analiticas mais ricas.
-- **Respostas dedicadas para todos os eventos aleatorios**: eventos de mercado/clientes aparecem via Andon e afetam o contexto de decisao. A evolucao natural e criar comandos de mitigacao especificos para cada evento, como negociacao de aumento, resposta a auditoria ou decisao formal sobre cliente urgente.
+- **Eventos aleatorios com efeitos agregados**: cliente urgente, indicacao, bug retroativo, pedido de aumento, auditoria OEE e tendencia de mercado alteram o estado da partida e aparecem via Andon/historico. O tradeoff e que algumas respostas ainda sao agregadas no processamento de sprint, em vez de comandos dedicados para cada evento.
 - **Drag and drop completo**: comandos por botoes acessiveis sao aceitaveis quando o fluxo e claro e enviado ao servidor. A evolucao natural e adicionar drag and drop preservando os mesmos comandos backend.
 
 ## Como rodar verificacoes locais
@@ -134,6 +134,8 @@ Docker:
 docker compose config
 docker compose build
 ```
+
+A auditoria de aderencia dos gates de teste/CI ao PDF esta em `docs/TEST_AUDIT.md`.
 
 ## Entrega publica
 
