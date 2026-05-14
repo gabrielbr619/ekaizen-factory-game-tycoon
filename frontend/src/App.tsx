@@ -35,6 +35,16 @@ type AppProps = {
 
 type ViewMode = 'ops' | 'hall'
 
+const initialGameRequests = new WeakMap<GameApi, Promise<GameState>>()
+
+function loadInitialGame(api: GameApi): Promise<GameState> {
+  const existing = initialGameRequests.get(api)
+  if (existing !== undefined) return existing
+  const request = api.startGame()
+  initialGameRequests.set(api, request)
+  return request
+}
+
 const currencyFormatter = new Intl.NumberFormat('pt-BR', {
   style: 'currency',
   currency: 'BRL',
@@ -59,8 +69,7 @@ export function App({ api }: AppProps) {
   useEffect(() => {
     let mounted = true
     setBusy(true)
-    api
-      .startGame()
+    loadInitialGame(api)
       .then((state) => {
         if (mounted) {
           setGame(state)
