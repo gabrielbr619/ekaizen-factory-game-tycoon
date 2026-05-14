@@ -2,39 +2,43 @@ from __future__ import annotations
 
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.domain.models import Column, KaizenType
 
 
-class CreateGameRequest(BaseModel):
+class StrictRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+class CreateGameRequest(StrictRequest):
     seed: int | None = None
 
 
-class MoveCardPayload(BaseModel):
+class MoveCardPayload(StrictRequest):
     type: Literal["move-card"]
     card_id: str
     target: Column
 
 
-class AllocateDevPayload(BaseModel):
+class AllocateDevPayload(StrictRequest):
     type: Literal["allocate-dev"]
     dev_id: str
     card_id: str | None = None
 
 
-class HireCandidatePayload(BaseModel):
+class HireCandidatePayload(StrictRequest):
     type: Literal["hire-candidate"]
     candidate_id: str
 
 
-class ApplyKaizenPayload(BaseModel):
+class ApplyKaizenPayload(StrictRequest):
     type: Literal["apply-kaizen"]
     kaizen: KaizenType
     target_id: str | None = None
 
 
-class ProcessSprintPayload(BaseModel):
+class ProcessSprintPayload(StrictRequest):
     type: Literal["process-sprint"]
 
 
@@ -48,6 +52,6 @@ CommandPayload = Annotated[
 ]
 
 
-class CommandRequest(BaseModel):
+class CommandRequest(StrictRequest):
     command_id: str
     payload: CommandPayload

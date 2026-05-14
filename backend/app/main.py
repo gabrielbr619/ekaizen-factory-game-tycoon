@@ -44,16 +44,39 @@ def healthz() -> dict[str, str]:
 
 
 @app.post("/games")
-def start_game(body: CreateGameRequest, response: Response) -> object:
+def start_game(
+    body: CreateGameRequest,
+    response: Response,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+) -> object:
+    request_hash = hash_command(body.model_dump(mode="json"))
+    if idempotency_key is not None:
+        try:
+            previous = repo.get_created_game(idempotency_key, request_hash)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        if previous is not None:
+            set_session_cookie(response, previous.id)
+            return encode_game(previous)
     game = create_game(body.seed)
-    repo.save(game)
+    if idempotency_key is not None:
+        try:
+            game = repo.save_created_game(idempotency_key, request_hash, game)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+    else:
+        repo.save(game)
+    set_session_cookie(response, game.id)
+    return encode_game(game)
+
+
+def set_session_cookie(response: Response, game_id: str) -> None:
     response.set_cookie(
         "ekaizen_session",
-        sign_session(game.id, SECRET),
+        sign_session(game_id, SECRET),
         httponly=True,
         samesite="lax",
     )
-    return encode_game(game)
 
 
 @app.get("/games/{game_id}")
@@ -85,8 +108,11 @@ def execute_command(
         game = apply_command_payload(game, body.payload)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    repo.save_idempotent(game, command_id, command_hash)
-    return encode_game(game)
+    try:
+        saved = repo.save_idempotent(game, command_id, command_hash)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return encode_game(saved)
 
 
 @app.get("/games/{game_id}/events")
@@ -96,7 +122,7 @@ async def game_events(
     require_session(game_id, ekaizen_session)
 
     async def stream() -> AsyncIterator[str]:
-        for _ in range(5):
+        while True:
             game = repo.get(game_id)
             if game is not None:
                 payload = json.dumps(encode_game(game), ensure_ascii=False)
