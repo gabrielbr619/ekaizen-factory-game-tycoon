@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 
 test('plays a complete factory management flow', async ({ page }) => {
   await page.route('**/games', async (route) => {
-    if (route.request().method() !== 'POST') {
+    if (route.request().method() !== 'POST' || !route.request().url().endsWith('/games')) {
       await route.continue()
       return
     }
