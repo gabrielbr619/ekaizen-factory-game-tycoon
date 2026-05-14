@@ -2,6 +2,7 @@ import { Activity, CheckCircle2, Gauge, History } from 'lucide-react'
 import { currencyFormatter, percentFormatter } from '../lib/formatters'
 import { type GameState, type SprintMetrics } from '../types'
 import { PanelTitle } from './PanelTitle'
+import { AccessibleDetail } from './ui/AccessibleDetail'
 
 type MetricsPanelProps = {
   metrics: SprintMetrics | undefined
@@ -34,10 +35,13 @@ type MetricProps = {
 }
 
 function Metric({ label, value, title }: MetricProps) {
+  const detailId = `metric-detail-${label.toLowerCase().replace(/\W+/g, '-')}`
+
   return (
-    <div aria-label={`${label}: ${value}. ${title}`} className="metric" role="group" title={title}>
+    <div aria-describedby={detailId} aria-label={`${label}: ${value}`} className="metric detail-host" role="group" tabIndex={0}>
       <span>{label}</span>
       <strong>{value}</strong>
+      <AccessibleDetail id={detailId} text={title} />
     </div>
   )
 }
@@ -64,15 +68,41 @@ export function ClientsPanel({ game }: ClientsPanelProps) {
 
 type EventsPanelProps = {
   events: string[]
+  timeline: GameState['timeline']
 }
 
-export function EventsPanel({ events }: EventsPanelProps) {
+export function EventsPanel({ events, timeline }: EventsPanelProps) {
+  const appliedEvents = timeline.slice(-2).reverse()
+
   return (
     <section className="panel" aria-label="Eventos">
       <PanelTitle icon={<Activity aria-hidden="true" />} title="Eventos" />
-      <ul className="event-list">
-        {events.length === 0 ? <li>Sem evento recente.</li> : events.map((event) => <li key={event}>{event}</li>)}
-      </ul>
+      <div className="event-groups">
+        <div>
+          <h3>Aguardando decisao</h3>
+          <ul className="event-list event-list-pending">
+            {events.length === 0 ? (
+              <li>Nenhuma decisao pendente informada pelo servidor.</li>
+            ) : (
+              events.map((event) => <li key={event}>{event}</li>)
+            )}
+          </ul>
+        </div>
+        <div>
+          <h3>Ja aplicado no estado</h3>
+          <ul className="event-list event-list-applied">
+            {appliedEvents.length === 0 ? (
+              <li>Sem historico aplicado nesta partida.</li>
+            ) : (
+              appliedEvents.map((event) => (
+                <li key={`${event.sprint}-${event.kind}-${event.message}`}>
+                  S{event.sprint}: {event.message}
+                </li>
+              ))
+            )}
+          </ul>
+        </div>
+      </div>
     </section>
   )
 }

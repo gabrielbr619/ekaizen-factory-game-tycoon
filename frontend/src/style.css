@@ -74,6 +74,57 @@ button:focus-visible {
   outline-offset: 2px;
 }
 
+.sr-only {
+  clip: rect(0 0 0 0);
+  border: 0;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
+.detail-host {
+  position: relative;
+}
+
+.detail-popover {
+  background: var(--ink);
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  box-shadow: var(--shadow);
+  color: var(--surface);
+  display: none;
+  font-size: 12px;
+  font-weight: 650;
+  left: 0;
+  line-height: 1.35;
+  max-width: min(280px, 70vw);
+  min-width: 190px;
+  opacity: 0;
+  padding: 8px 9px;
+  pointer-events: none;
+  position: absolute;
+  text-align: left;
+  top: calc(100% + 6px);
+  transform: translateY(-2px);
+  transition:
+    opacity 120ms ease,
+    transform 120ms ease;
+  white-space: normal;
+  z-index: 30;
+}
+
+.detail-host:hover > .detail-popover,
+.detail-host:focus-within > .detail-popover,
+.detail-host:focus-visible > .detail-popover {
+  display: block;
+  opacity: 1;
+  transform: translateY(0);
+}
+
 #app {
   min-height: 100vh;
 }
@@ -320,6 +371,16 @@ svg {
   font-weight: 800;
 }
 
+.andon-title small {
+  background: var(--amber-bg);
+  border-radius: 999px;
+  color: var(--amber);
+  font-size: 10px;
+  font-weight: 900;
+  padding: 3px 6px;
+  text-transform: uppercase;
+}
+
 .andon-alerts {
   display: flex;
   gap: 6px;
@@ -372,6 +433,19 @@ svg {
   gap: 6px;
   padding: 5px;
   width: max-content;
+}
+
+.andon-alert {
+  align-items: center;
+  gap: 6px;
+}
+
+.andon-alert strong {
+  background: color-mix(in srgb, currentColor 12%, transparent);
+  border-radius: 999px;
+  font-size: 10px;
+  padding: 3px 5px;
+  text-transform: uppercase;
 }
 
 .status-strip {
@@ -519,6 +593,18 @@ svg {
   padding-right: 2px;
 }
 
+.event-groups {
+  display: grid;
+  gap: 8px;
+}
+
+.event-groups h3 {
+  color: var(--muted-strong);
+  font-size: 11px;
+  margin: 0 0 5px;
+  text-transform: uppercase;
+}
+
 .event-list li {
   background: var(--amber-bg);
   border-radius: 6px;
@@ -526,6 +612,28 @@ svg {
   font-size: 12px;
   line-height: 1.35;
   padding: 8px;
+}
+
+.event-list-applied li {
+  background: var(--blue-bg);
+  color: var(--blue);
+}
+
+.detail-host > .detail-popover {
+  background: var(--ink);
+  color: var(--surface);
+  display: none;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.35;
+  text-transform: none;
+  white-space: normal;
+}
+
+.detail-host:hover > .detail-popover,
+.detail-host:focus-within > .detail-popover,
+.detail-host:focus-visible > .detail-popover {
+  display: block;
 }
 
 .kanban-area {
@@ -794,6 +902,11 @@ svg {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.dev-row .dev-warning {
+  color: var(--orange);
+  font-weight: 800;
 }
 
 .morale {

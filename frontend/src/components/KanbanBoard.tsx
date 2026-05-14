@@ -4,6 +4,7 @@ import { currencyFormatter } from '../lib/formatters'
 import { columnHelp, columnLabel, cycleSummary, nextColumn } from '../lib/gameLabels'
 import { columns, type Card, type Column, type GameState } from '../types'
 import { PanelTitle } from './PanelTitle'
+import { AccessibleDetail } from './ui/AccessibleDetail'
 
 type KanbanBoardProps = {
   game: GameState
@@ -133,6 +134,10 @@ function WorkCard({ card, game, selected, dragging, onSelect, onDragStart, onDra
   const movementHint = canMove
     ? 'Arraste para a proxima coluna ou use Mover.'
     : 'QA e Done sao resolvidos no fechamento da sprint.'
+  const cardDetailId = `card-detail-${card.id}`
+  const progressDetailId = `card-progress-detail-${card.id}`
+  const cardDetail = `Selecionar ${card.title}. ${movementHint} Requisitos: ${card.required_specialties.join(', ')}. Valor ${currencyFormatter.format(card.value)}. Prazo sprint ${card.deadline_sprint}. Progresso ${progress}.`
+
   return (
     <article
       aria-label={`Card ${card.title}`}
@@ -142,18 +147,29 @@ function WorkCard({ card, game, selected, dragging, onSelect, onDragStart, onDra
       onDragStart={onDragStart}
     >
       <button
-        className="card-select"
+        aria-describedby={cardDetailId}
+        className="card-select detail-host"
         aria-label={`Selecionar card ${card.title}`}
         onClick={onSelect}
-        title={`Selecionar ${card.title}. ${movementHint} Requisitos: ${card.required_specialties.join(', ')}. Valor ${currencyFormatter.format(card.value)}. Prazo sprint ${card.deadline_sprint}. Progresso ${progress}.`}
         type="button"
       >
         <span className="card-type">{card.card_type}</span>
         <strong>{card.title}</strong>
         <span>{client?.name ?? 'Cliente'} · {card.size} · prazo S{card.deadline_sprint}</span>
+        <AccessibleDetail id={cardDetailId} text={cardDetail} />
       </button>
-      <div className="progress-track" title={`Progresso recebido: ${progress}`}>
+      <div
+        aria-describedby={progressDetailId}
+        aria-label={`Progresso ${progress}`}
+        className="progress-track detail-host"
+        role="meter"
+        aria-valuemin={0}
+        aria-valuemax={card.points_total}
+        aria-valuenow={card.progress}
+        tabIndex={0}
+      >
         <span style={{ width: `${Math.min(100, Math.round((card.progress / card.points_total) * 100))}%` }} />
+        <AccessibleDetail id={progressDetailId} text={`Progresso recebido: ${progress}`} />
       </div>
       <div className="card-meta">
         <span>{currencyFormatter.format(card.value)}</span>

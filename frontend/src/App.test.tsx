@@ -58,6 +58,40 @@ describe('Factory game UI', () => {
     expect(within(devPanel).getByText('42')).toBeInTheDocument()
   })
 
+  it('exposes card, developer and metric details without native title-only help', async () => {
+    render(<App api={createTestApi()} />)
+
+    const metrics = await screen.findByRole('region', { name: 'Metricas' })
+    const oeeMetric = within(metrics).getByRole('group', { name: /OEE: 64%/ })
+    expect(oeeMetric).not.toHaveAttribute('title')
+    expect(oeeMetric).toHaveAccessibleDescription(/Qualidade operacional geral/i)
+    expect(within(oeeMetric).getAllByText(/Qualidade operacional geral/i)).toHaveLength(2)
+
+    const devPanel = screen.getByRole('region', { name: 'Devs' })
+    const devButton = within(devPanel)
+      .getAllByRole('button', { name: /Lia Backend/i })
+      .find((button) => !button.className.includes('tiny-action'))
+    expect(devButton).toBeDefined()
+    expect(devButton).not.toHaveAttribute('title')
+    expect(devButton).toHaveAccessibleDescription(/Salario R\$\s*700/i)
+
+    const kanban = screen.getByRole('region', { name: 'Kanban' })
+    const cardButton = within(kanban).getByRole('button', { name: /Selecionar card Dashboard OEE/i })
+    expect(cardButton).not.toHaveAttribute('title')
+    expect(cardButton).toHaveAccessibleDescription(/Valor R\$\s*6\.000/i)
+  })
+
+  it('separates server pending decisions from events already applied to state', async () => {
+    render(<App api={createTestApi()} />)
+
+    const eventsPanel = await screen.findByRole('region', { name: 'Eventos' })
+
+    expect(within(eventsPanel).getByText('Aguardando decisao')).toBeInTheDocument()
+    expect(within(eventsPanel).getByText(/Auditoria de OEE/i)).toBeInTheDocument()
+    expect(within(eventsPanel).getByText('Ja aplicado no estado')).toBeInTheDocument()
+    expect(within(eventsPanel).getByText(/Pipeline de deploy foi puxado/i)).toBeInTheDocument()
+  })
+
   it('shows an initial tutorial overlay explaining core gameplay', async () => {
     render(<App api={createTestApi()} />)
 

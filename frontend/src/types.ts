@@ -41,6 +41,9 @@ const developerSchema = z.object({
   onboarding_sprints: z.number(),
   clean_cards_delivered: z.number(),
   god_low_work_streak: z.number(),
+  god_last_kaizen_sprint: z.number().optional(),
+  raise_request_deadline_sprint: z.number().nullable().optional(),
+  raise_requested_salary: z.number().nullable().optional(),
 })
 
 const cardSchema = z.object({

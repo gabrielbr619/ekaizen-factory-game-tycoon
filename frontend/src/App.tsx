@@ -180,6 +180,7 @@ export function App({ api }: AppProps) {
         <div className="andon-title">
           <AlertTriangle aria-hidden="true" />
           <span>Andon</span>
+          <small>Decisao</small>
         </div>
         <div className="andon-alerts">
           {game.andon_alerts.length === 0 ? (
@@ -189,8 +190,8 @@ export function App({ api }: AppProps) {
               <span
                 className={`andon-alert andon-${alert.severity}`}
                 key={`${alert.code}-${index}-${alert.message}`}
-                title="Andon mostra situacoes que precisam de decisao antes que virem perda."
               >
+                <strong>Requer acao</strong>
                 {alert.message}
               </span>
             ))
@@ -224,7 +225,7 @@ export function App({ api }: AppProps) {
           <section className="left-rail">
             <MetricsPanel metrics={lastMetrics} game={game} />
             <ClientsPanel game={game} />
-            <EventsPanel events={game.pending_events} />
+            <EventsPanel events={game.pending_events} timeline={game.timeline} />
             <HistoryPanel timeline={game.timeline} />
           </section>
 
