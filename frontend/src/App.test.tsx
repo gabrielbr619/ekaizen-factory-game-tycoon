@@ -65,7 +65,18 @@ describe('Factory game UI', () => {
     const oeeMetric = within(metrics).getByRole('group', { name: /OEE: 64%/ })
     expect(oeeMetric).not.toHaveAttribute('title')
     expect(oeeMetric).toHaveAccessibleDescription(/Qualidade operacional geral/i)
-    expect(within(oeeMetric).getAllByText(/Qualidade operacional geral/i)).toHaveLength(2)
+    expect(within(oeeMetric).getAllByText(/Qualidade operacional geral/i)).toHaveLength(1)
+
+    fireEvent.focusIn(oeeMetric)
+    await waitFor(() => {
+      expect(
+        Array.from(document.body.querySelectorAll('.tooltip-content[data-open="true"]')).some((tooltip) =>
+          /Qualidade operacional geral/i.test(tooltip.textContent ?? ''),
+        ),
+      ).toBe(true)
+    })
+    fireEvent.click(oeeMetric)
+    await waitFor(() => expect(document.body.querySelector('.tooltip-content[data-open="true"]')).not.toBeInTheDocument())
 
     const devPanel = screen.getByRole('region', { name: 'Devs' })
     const devButton = within(devPanel)
