@@ -319,6 +319,14 @@ small {
   border-color: var(--blue);
 }
 
+[data-theme="dark"] .ui-button-primary,
+[data-theme="dark"] .primary-action {
+  background: #2563eb;
+  border-color: #3b82f6;
+  color: #f8fbff;
+  box-shadow: 0 0 0 1px rgb(147 197 253 / 14%);
+}
+
 .ui-button-secondary,
 .secondary-action {
   background: var(--surface);
