@@ -1,21 +1,6 @@
 import { expect, test } from '@playwright/test'
 
 test('plays a complete factory management flow', async ({ page }) => {
-  await page.route('**/games', async (route) => {
-    if (route.request().method() !== 'POST' || !route.request().url().endsWith('/games')) {
-      await route.continue()
-      return
-    }
-
-    await route.continue({
-      postData: JSON.stringify({ seed: 4242 }),
-      headers: {
-        ...route.request().headers(),
-        'content-type': 'application/json',
-      },
-    })
-  })
-
   await page.goto('/')
 
   await expect(page.getByRole('heading', { name: 'eKaizen Factory Game Tycoon' })).toBeVisible()
