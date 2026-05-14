@@ -23,9 +23,12 @@ from app.domain.models import (
 from app.domain.rules.events import apply_event
 from app.domain.rules.work import (
     REPUTATION_GAIN_ON_DELIVERY,
+    handle_god_tier_retention,
+    handle_raise_requests,
     level_profile,
     penalize_client,
     specialty_matches,
+    sprint_progress,
     stage_required_points,
     update_worker_moral,
 )
@@ -288,6 +291,13 @@ def test_oee_calculation() -> None:
     assert calculate_oee(game, delivered=1, delivered_on_time=1, production_bugs=1) == 0.0
 
 
+def test_oee_availability_drops_when_dev_moral_is_below_burnout_threshold() -> None:
+    game = create_game(123)
+    game.developers[0].moral = 29
+
+    assert calculate_oee(game, delivered=0, delivered_on_time=0, production_bugs=0) == 0.667
+
+
 def test_heijunka_bonus_requires_consistency() -> None:
     game = create_game(123)
     game.active_kaizens.append(KaizenType.HEIJUNKA)
@@ -375,6 +385,19 @@ def test_retro_bug_event_turns_done_card_into_backlog_bug() -> None:
     assert bug_card.deadline_sprint == game.sprint + 2
 
 
+def test_urgent_client_event_penalizes_reputation_when_backlog_wip_is_full() -> None:
+    game = create_game(123)
+    game.wip_limits[Column.BACKLOG.value] = 0
+    client_reputations = {client.id: client.reputation for client in game.clients}
+    initial_cards = len(game.cards)
+
+    message = apply_event(game, "urgent-client", random.Random(1))
+
+    assert message == "Cliente urgente: Backlog cheio recusou demanda e reputacao caiu."
+    assert len(game.cards) == initial_cards
+    assert any(client.reputation < client_reputations[client.id] for client in game.clients)
+
+
 def test_junior_alone_on_large_card_makes_no_progress() -> None:
     game = create_game(123)
     junior = _developer("junior", Level.JUNIOR)
@@ -409,6 +432,30 @@ def test_pleno_needs_senior_mentor_on_large_card() -> None:
     assert card.progress > 0
 
 
+def test_brooks_law_overstaffing_increases_moral_drain_and_bug_risk() -> None:
+    game = create_game(123)
+    workers = [_developer(f"senior-{index}", Level.SENIOR) for index in range(5)]
+    card = _large_backend_card()
+
+    progress = sprint_progress(game, card, workers, random.Random(1))
+    update_worker_moral(game, card, workers)
+
+    assert progress > 0
+    assert card.latent_bug
+    assert all(worker.moral == 75 for worker in workers)
+
+
+def test_rest_space_kaizen_reduces_active_work_moral_drain() -> None:
+    game = create_game(123)
+    worker = _developer("senior", Level.SENIOR)
+    card = _large_backend_card()
+    game.active_kaizens.append(KaizenType.REST_SPACE)
+
+    update_worker_moral(game, card, [worker])
+
+    assert worker.moral == 79
+
+
 def test_god_tier_leaves_after_three_trivial_sprints() -> None:
     game = create_game(123)
     god = _developer("god", Level.GOD_TIER)
@@ -431,3 +478,103 @@ def test_god_tier_leaves_after_three_trivial_sprints() -> None:
     assert all(
         client.reputation == initial_reputations[client.id] - 15 for client in game.clients
     )
+
+
+def test_god_tier_leaves_without_targeted_kaizen_every_eight_sprints() -> None:
+    game = create_game(123)
+    god = _developer("god", Level.GOD_TIER)
+    god.god_last_kaizen_sprint = game.sprint
+    game.developers = [god]
+    game.cards = []
+    game.sprint = 8
+
+    handle_god_tier_retention(game)
+
+    assert not god.active
+    assert any(
+        event.kind == "god-tier-exit" and "Kaizen" in event.message
+        for event in game.timeline
+    )
+
+
+def test_targeted_kaizen_recognition_resets_god_tier_eight_sprint_timer() -> None:
+    game = create_game(123)
+    god = _developer("god", Level.GOD_TIER)
+    god.god_last_kaizen_sprint = game.sprint
+    game.developers = [god]
+    game.cards = []
+    game.sprint = 8
+
+    game.kaizen_points = 1
+    game = apply_kaizen(game, KaizenType.TRAIN_DEV, god.id)
+    handle_god_tier_retention(game)
+
+    assert god.active
+    assert god.god_last_kaizen_sprint == 8
+    assert god.onboarding_sprints == 0
+
+
+def test_raise_request_event_sets_salary_deadline_and_dev_leaves_if_unanswered() -> None:
+    game = create_game(123)
+    dev = game.developers[0]
+    initial_reputations = {client.id: client.reputation for client in game.clients}
+
+    message = apply_event(game, "raise-request", random.Random(4))
+
+    assert "Pedido de aumento" in message
+    assert dev.raise_request_deadline_sprint == game.sprint + 2
+    assert dev.raise_requested_salary == int(dev.salary * 1.2)
+    deadline = dev.raise_request_deadline_sprint
+    assert deadline is not None
+
+    game.sprint = deadline
+    handle_raise_requests(game)
+
+    assert not dev.active
+    assert all(
+        client.reputation == initial_reputations[client.id] - 5 for client in game.clients
+    )
+
+
+def test_oee_audit_event_cancels_lowest_reputation_client_when_average_oee_is_bad() -> None:
+    game = create_game(123)
+    game.metrics_history = [
+        SprintMetrics(
+            sprint=index,
+            delivered_cards=1,
+            throughput_value=1_000,
+            oee=0.2,
+            lead_time_avg=3.0,
+            bugs_in_production=0,
+            heijunka_bonus=0,
+        )
+        for index in range(1, 5)
+    ]
+    game.clients[0].reputation = 55
+    game.clients[1].reputation = 45
+    game.clients[2].reputation = 65
+
+    message = apply_event(game, "oee-audit", random.Random(5))
+    game = process_sprint(game)
+
+    assert "Auditoria de OEE" in message
+    assert game.clients[1].active is False
+    assert any(event.kind == "oee-audit" for event in game.timeline)
+
+
+def test_market_trend_event_adds_extra_specialty_demand_for_five_sprints() -> None:
+    game = create_game(123)
+    game.sprint = 31
+    game.cards = []
+
+    message = apply_event(game, "market-trend", random.Random(6))
+    trended_specialty = game.market_trends[0].specialty
+    initial_cards = len(game.cards)
+
+    game = process_sprint(game)
+
+    new_cards = game.cards[initial_cards:]
+    assert "Tendencia de mercado" in message
+    assert len(new_cards) >= 2
+    assert any(card.required_specialties == [trended_specialty] for card in new_cards)
+    assert game.market_trends[0].expires_after_sprint == 36

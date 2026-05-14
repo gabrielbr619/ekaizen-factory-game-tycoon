@@ -89,6 +89,9 @@ class Developer:
     onboarding_sprints: int = 0
     clean_cards_delivered: int = 0
     god_low_work_streak: int = 0
+    god_last_kaizen_sprint: int = 0
+    raise_request_deadline_sprint: int | None = None
+    raise_requested_salary: int | None = None
 
 
 @dataclass
@@ -156,6 +159,12 @@ class TimelineEvent:
 
 
 @dataclass
+class MarketTrend:
+    specialty: Specialty
+    expires_after_sprint: int
+
+
+@dataclass
 class AndonAlert:
     severity: str
     code: str
@@ -196,4 +205,6 @@ class GameState:
     badges: list[str]
     scheduled_production_bugs: list[ScheduledProductionBug] = field(default_factory=list)
     kaizen_impacts: list[KaizenImpact] = field(default_factory=list)
+    market_trends: list[MarketTrend] = field(default_factory=list)
+    pending_oee_audit_sprint: int | None = None
     verdict: Verdict = Verdict.PLAYING

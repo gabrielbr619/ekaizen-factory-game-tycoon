@@ -21,6 +21,7 @@ def hire_candidate(game: GameState, candidate_id: str) -> GameState:
             candidate.moral,
             candidate.avatar,
             onboarding_sprints=2,
+            god_last_kaizen_sprint=game.sprint,
         )
     )
     game.candidates = [item for item in game.candidates if item.id != candidate_id]

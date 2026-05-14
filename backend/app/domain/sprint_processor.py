@@ -28,6 +28,7 @@ from app.domain.rules.work import (
     find_dev,
     finish_card,
     handle_god_tier_retention,
+    handle_raise_requests,
     handle_resignations,
     payroll,
     penalize_client,
@@ -77,6 +78,35 @@ def _resolve_scheduled_production_bugs(game: GameState) -> int:
     return len(due_bugs)
 
 
+def _resolve_oee_audit(
+    game: GameState, audited_sprint: int, pending_audit_sprint: int | None
+) -> None:
+    if pending_audit_sprint != audited_sprint:
+        return
+    if game.pending_oee_audit_sprint == pending_audit_sprint:
+        game.pending_oee_audit_sprint = None
+    if not game.metrics_history:
+        return
+    average_oee = sum(metric.oee for metric in game.metrics_history) / len(game.metrics_history)
+    if average_oee >= 0.5:
+        game.timeline.append(
+            TimelineEvent(audited_sprint, "oee-audit", "Auditoria de OEE aprovada.")
+        )
+        return
+    active_clients = [client for client in game.clients if client.active]
+    if not active_clients:
+        return
+    lost_client = min(active_clients, key=lambda client: client.reputation)
+    lost_client.active = False
+    game.timeline.append(
+        TimelineEvent(
+            audited_sprint,
+            "oee-audit",
+            f"Auditoria de OEE reprovada: {lost_client.name} cancelou o contrato.",
+        )
+    )
+
+
 def process_sprint(game: GameState) -> GameState:
     if game.verdict != Verdict.PLAYING:
         return game
@@ -90,6 +120,7 @@ def process_sprint(game: GameState) -> GameState:
                 TimelineEvent(game.sprint, "client-cancel", f"{client.name} cancelou o contrato.")
             )
     rng = random.Random(game.seed + game.sprint * 97)
+    pending_audit_sprint = game.pending_oee_audit_sprint
     delivered = 0
     delivered_on_time = 0
     throughput_value = 0
@@ -133,6 +164,7 @@ def process_sprint(game: GameState) -> GameState:
                 finish_card(game, card, workers)
     recover_idle_morale(game)
     handle_god_tier_retention(game)
+    handle_raise_requests(game)
     for card in list(active_cards(game)):
         if game.sprint > card.deadline_sprint and card.column != Column.DONE:
             penalize_client(game, card.client_id, 15)
@@ -180,6 +212,7 @@ def process_sprint(game: GameState) -> GameState:
         cycle_time_by_column=average_cycle_time_by_column(game),
     )
     game.metrics_history.append(metrics)
+    _resolve_oee_audit(game, metrics.sprint, pending_audit_sprint)
     update_badges(game, metrics)
     update_verdict(game)
     return refresh_alerts(game)

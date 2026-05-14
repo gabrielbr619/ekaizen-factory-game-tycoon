@@ -231,13 +231,16 @@ def handle_god_tier_retention(game: GameState) -> None:
     for dev in game.developers:
         if not dev.active or dev.level != Level.GOD_TIER:
             continue
+        if dev.god_last_kaizen_sprint == 0:
+            dev.god_last_kaizen_sprint = game.sprint
         assigned_cards = [card for card in game.cards if dev.id in card.assigned_dev_ids]
         if not assigned_cards or all(card.size != CardSize.G for card in assigned_cards):
             dev.god_low_work_streak += 1
             dev.moral = max(0, dev.moral - 4)
         else:
             dev.god_low_work_streak = 0
-        should_leave = dev.moral < 50 or dev.god_low_work_streak >= 3
+        recognition_overdue = game.sprint + 1 - dev.god_last_kaizen_sprint >= 8
+        should_leave = dev.moral < 50 or dev.god_low_work_streak >= 3 or recognition_overdue
         if not should_leave:
             continue
         dev.active = False
@@ -247,8 +250,36 @@ def handle_god_tier_retention(game: GameState) -> None:
         for card in game.cards:
             if dev.id in card.assigned_dev_ids:
                 card.assigned_dev_ids.remove(dev.id)
+        reason = "sem Kaizen direcionado" if recognition_overdue else "por risco de retencao"
         game.timeline.append(
-            TimelineEvent(game.sprint, "god-tier-exit", f"{dev.name} deixou a empresa.")
+            TimelineEvent(game.sprint, "god-tier-exit", f"{dev.name} deixou a empresa {reason}.")
+        )
+
+
+def handle_raise_requests(game: GameState) -> None:
+    for dev in game.developers:
+        if not dev.active or dev.raise_request_deadline_sprint is None:
+            continue
+        if dev.raise_requested_salary is not None and dev.salary >= dev.raise_requested_salary:
+            dev.raise_request_deadline_sprint = None
+            dev.raise_requested_salary = None
+            game.timeline.append(
+                TimelineEvent(game.sprint, "raise-accepted", f"{dev.name} recebeu aumento.")
+            )
+            continue
+        if game.sprint < dev.raise_request_deadline_sprint:
+            continue
+        dev.active = False
+        dev.raise_request_deadline_sprint = None
+        dev.raise_requested_salary = None
+        for client in game.clients:
+            if client.active:
+                client.reputation = max(0, client.reputation - 5)
+        for card in game.cards:
+            if dev.id in card.assigned_dev_ids:
+                card.assigned_dev_ids.remove(dev.id)
+        game.timeline.append(
+            TimelineEvent(game.sprint, "raise-exit", f"{dev.name} saiu apos pedido de aumento.")
         )
 
 

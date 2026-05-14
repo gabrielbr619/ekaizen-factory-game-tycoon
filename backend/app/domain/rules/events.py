@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import random
 
-from app.domain.game_factory import NAMES, required_specialty
+from app.domain.game_factory import NAMES
 from app.domain.models import (
     Candidate,
     Card,
@@ -11,6 +11,7 @@ from app.domain.models import (
     Column,
     GameState,
     Level,
+    MarketTrend,
     Specialty,
     TimelineEvent,
 )
@@ -124,6 +125,44 @@ def _apply_retro_bug(game: GameState, rng: random.Random) -> str:
     return "Bug retroativo: Backlog cheio recusou bug critico e reputacao caiu."
 
 
+def _apply_raise_request(game: GameState, rng: random.Random) -> str:
+    active_devs = [dev for dev in game.developers if dev.active]
+    if not active_devs:
+        return "Pedido de aumento: nao ha dev ativo para fazer pedido."
+    dev = rng.choice(active_devs)
+    dev.raise_requested_salary = int(dev.salary * 1.2)
+    dev.raise_request_deadline_sprint = game.sprint + 2
+    game.timeline.append(
+        TimelineEvent(
+            game.sprint,
+            "event",
+            f"Pedido de aumento: {dev.name} quer salario de R$ {dev.raise_requested_salary}.",
+        )
+    )
+    return f"Pedido de aumento: {dev.name} exige +20% salario ou sai em 2 sprints."
+
+
+def _apply_oee_audit(game: GameState) -> str:
+    game.pending_oee_audit_sprint = game.sprint
+    game.timeline.append(
+        TimelineEvent(game.sprint, "event", "Auditoria de OEE marcada para esta sprint.")
+    )
+    return "Auditoria de OEE: cliente avaliara sua eficiencia na proxima sprint."
+
+
+def _apply_market_trend(game: GameState, rng: random.Random) -> str:
+    specialty = rng.choice(list(Specialty))
+    game.market_trends.append(MarketTrend(specialty, game.sprint + 5))
+    game.timeline.append(
+        TimelineEvent(
+            game.sprint,
+            "event",
+            f"Tendencia de mercado: demanda por {specialty.value} aumentou.",
+        )
+    )
+    return f"Tendencia de mercado: demanda por {specialty.value} dobrou por 5 sprints."
+
+
 def apply_event(game: GameState, event_key: str, rng: random.Random) -> str:
     if event_key == "urgent-client":
         return _apply_urgent_client(game, rng)
@@ -132,14 +171,11 @@ def apply_event(game: GameState, event_key: str, rng: random.Random) -> str:
     if event_key == "retro-bug":
         return _apply_retro_bug(game, rng)
     if event_key == "raise-request":
-        return "Pedido de aumento: um dev quer reconhecimento financeiro."
+        return _apply_raise_request(game, rng)
     if event_key == "oee-audit":
-        return "Auditoria de OEE: cliente avaliara sua eficiencia na proxima sprint."
+        return _apply_oee_audit(game)
     if event_key == "market-trend":
-        specialty = rng.choice(list(Specialty))
-        card_type = CardType.INFRA if specialty == Specialty.DEVOPS else CardType.FEATURE
-        required = required_specialty(card_type, rng)
-        return f"Tendencia de mercado: demanda por {required[0].value} aumentou."
+        return _apply_market_trend(game, rng)
     return "Evento desconhecido: nenhuma alteracao aplicada."
 
 

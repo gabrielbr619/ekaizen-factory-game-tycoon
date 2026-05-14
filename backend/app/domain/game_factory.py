@@ -100,6 +100,9 @@ def generate_cards(game: GameState, amount: int) -> list[Card]:
     active_clients = [client for client in game.clients if client.active]
     if not active_clients:
         return cards
+    game.market_trends = [
+        trend for trend in game.market_trends if trend.expires_after_sprint >= game.sprint
+    ]
     for index in range(amount):
         if count_column(game, Column.BACKLOG) + len(cards) >= game.wip_limits[Column.BACKLOG.value]:
             penalize_client(game, rng.choice(active_clients).id, 10)
@@ -132,6 +135,36 @@ def generate_cards(game: GameState, amount: int) -> list[Card]:
                 entered_column_sprint=game.sprint,
             )
         )
+    for trend in game.market_trends:
+        for index in range(amount):
+            if (
+                count_column(game, Column.BACKLOG) + len(cards)
+                >= game.wip_limits[Column.BACKLOG.value]
+            ):
+                penalize_client(game, rng.choice(active_clients).id, 10)
+                continue
+            size = rng.choices([CardSize.P, CardSize.M, CardSize.G], weights=[50, 35, 15], k=1)[0]
+            points, value, deadline = size_profile(size)
+            client = rng.choice(active_clients)
+            card_type = CardType.INFRA if trend.specialty == Specialty.DEVOPS else CardType.FEATURE
+            title = f"Tendencia {trend.specialty.value}: {rng.choice(CARD_TITLES[card_type])}"
+            cards.append(
+                Card(
+                    id=f"trend-{game.sprint}-{trend.specialty.value}-{len(game.cards) + index + 1}",
+                    title=title,
+                    card_type=card_type,
+                    size=size,
+                    required_specialties=[trend.specialty],
+                    points_total=points,
+                    progress=0,
+                    value=value,
+                    deadline_sprint=game.sprint + deadline,
+                    client_id=client.id,
+                    column=Column.BACKLOG,
+                    created_sprint=game.sprint,
+                    entered_column_sprint=game.sprint,
+                )
+            )
     return cards
 
 

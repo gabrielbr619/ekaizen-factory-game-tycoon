@@ -24,7 +24,12 @@ def apply_kaizen(game: GameState, kaizen: KaizenType, target_id: str | None = No
     if kaizen == KaizenType.TRAIN_DEV:
         if target_id is None:
             raise ValueError("Treinar Dev exige um alvo.")
-        train_dev(find_dev(game, target_id))
+        target_dev = find_dev(game, target_id)
+        if target_dev.level == Level.GOD_TIER:
+            target_dev.god_last_kaizen_sprint = game.sprint
+            target_dev.moral = min(100, target_dev.moral + 8)
+        else:
+            train_dev(target_dev)
     elif kaizen == KaizenType.WIP_INCREASE:
         column = target_id if target_id is not None else "development"
         if column not in game.wip_limits:
