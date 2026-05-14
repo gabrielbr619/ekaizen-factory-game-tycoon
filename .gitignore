@@ -12,6 +12,7 @@ backend/.pytest_cache/
 backend/htmlcov/
 backend/.coverage
 backend/data/
+data/
 __pycache__/
 *.py[cod]
 

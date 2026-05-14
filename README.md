@@ -6,9 +6,9 @@ O backend FastAPI e a fonte autoritativa do estado e das regras. O frontend Vite
 
 ## Status honesto da entrega
 
-Este repositorio ainda esta em construcao por agentes paralelos. No estado atual deste worktree, a infraestrutura Docker/CI esta preparada, o backend ja expoe os endpoints principais do contrato e o frontend ainda esta no scaffold inicial do Vite. A entrega final precisa receber o merge das frentes de dominio, API e UI antes de ser considerada jogavel.
+Este repositorio contem uma versao integrada e jogavel do desafio. O backend FastAPI persiste partidas em SQLite, expoe os endpoints principais, processa as regras de dominio e e a fonte autoritativa do estado. O frontend Vite/React consome a API real, renderiza o jogo como primeira tela e envia comandos para o backend.
 
-URL publica do deploy: **pendente**.
+URL publica do deploy: **pendente de preenchimento antes do envio ao avaliador**.
 
 ## Como rodar com Docker Compose
 
@@ -64,15 +64,15 @@ Mutações passam por `POST /games/{game_id}/commands` com `command_id` no corpo
 - **Backend autoritativo**: regras e calculos devem ficar no FastAPI/dominio. O frontend pode formatar valores e renderizar agrupamentos, mas nao deve calcular resultado de jogo.
 - **Nginx no frontend Docker**: o container do frontend serve os arquivos estaticos e faz proxy de `/healthz` e `/games` para o backend, permitindo abrir o jogo em `http://localhost`.
 - **SSE como tempo real minimo**: o endpoint `/games/{game_id}/events` existe para o canal de comunicacao em tempo real exigido pelo desafio.
+- **Estado de UI local com React state**: a interface usa estado local de tela porque o fluxo e single-player, baseado em comandos e sem compartilhamento complexo entre rotas. A evolucao natural seria Zustand caso o jogo ganhe multiplas telas independentes ou cache de sessoes.
 - **CI com comandos reais**: o workflow roda ruff, mypy, pytest, typecheck, testes frontend, build frontend e build Docker. Se alguma frente ainda estiver incompleta, a falha deve aparecer no pipeline em vez de ser escondida.
 
 ## Fora de escopo ou pendente
 
 - Deploy publico ainda nao configurado; a URL acima deve ser preenchida antes do envio.
-- O frontend deste worktree ainda nao e o jogo final. A UI jogavel deve vir da frente de frontend antes da entrega publica.
-- E2E Playwright ainda nao esta presente neste worktree.
+- E2E Playwright ainda nao esta presente neste worktree. A cobertura automatizada atual fica em testes de dominio/API e componentes-chave do frontend.
 - A persistencia SQLite e relacional no arquivo de banco, mas o estado de jogo ainda e salvo como snapshot.
-- A documentacao deve ser revisada apos merge das frentes de dominio/API/UI para remover qualquer divergencia entre o comportamento final e este README.
+- Algumas regras avancadas do PDF foram simplificadas para priorizar fluxo jogavel, determinismo e separacao backend/frontend dentro do prazo.
 
 ## Como rodar verificacoes locais
 
