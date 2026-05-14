@@ -351,7 +351,7 @@ svg {
   align-items: center;
   display: grid;
   gap: 10px;
-  grid-template-columns: 96px 1fr;
+  grid-template-columns: max-content minmax(0, 1fr);
   padding: 8px 10px;
 }
 
@@ -369,6 +369,7 @@ svg {
   color: var(--muted-strong);
   font-size: 13px;
   font-weight: 800;
+  min-width: 0;
 }
 
 .andon-title small {
@@ -384,6 +385,7 @@ svg {
 .andon-alerts {
   display: flex;
   gap: 6px;
+  min-width: 0;
   overflow-x: auto;
   padding-bottom: 1px;
 }
@@ -396,6 +398,7 @@ svg {
   display: inline-flex;
   font-size: 11px;
   font-weight: 700;
+  gap: 6px;
   line-height: 1;
   padding: 7px 8px;
   white-space: nowrap;

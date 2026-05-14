@@ -1,6 +1,6 @@
 import { BriefcaseBusiness } from 'lucide-react'
 import { currencyFormatter } from '../lib/formatters'
-import { levelLabel, specialtyLabel } from '../lib/gameLabels'
+import { levelLabel, specialtyBadge, specialtyLabel } from '../lib/gameLabels'
 import { type Candidate, type GameState } from '../types'
 import { PanelTitle } from './PanelTitle'
 
@@ -16,7 +16,7 @@ export function HiringPanel({ game, onHire }: HiringPanelProps) {
       <div className="candidate-list">
         {game.candidates.map((candidate) => (
           <article key={candidate.id}>
-            <span className="candidate-avatar" aria-hidden="true">{candidate.avatar}</span>
+            <span className="candidate-avatar" aria-hidden="true">{specialtyBadge(candidate.specialty)}</span>
             <div>
               <strong>{candidate.name}</strong>
               <span>
