@@ -32,4 +32,3 @@ def test_idempotent_process_sprint() -> None:
     assert first.status_code == 200
     assert second.status_code == 200
     assert first.json()["sprint"] == second.json()["sprint"]
-

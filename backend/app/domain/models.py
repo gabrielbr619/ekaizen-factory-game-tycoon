@@ -183,4 +183,3 @@ class GameState:
     heijunka_streak: int
     badges: list[str]
     verdict: Verdict = Verdict.PLAYING
-
