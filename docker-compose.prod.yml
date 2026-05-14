@@ -1,0 +1,60 @@
+services:
+  backend:
+    container_name: factory-game-tycoon-backend
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_PATH: /data/factory-game.sqlite3
+      SESSION_SECRET: ${SESSION_SECRET:?Set SESSION_SECRET in .env before starting production}
+    volumes:
+      - factory_game_prod_data:/data
+    networks:
+      - factory_game_internal
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=2)\"",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  frontend:
+    container_name: factory-game-tycoon-frontend
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      factory_game_internal:
+      edge:
+        aliases:
+          - factory-game-tycoon-frontend
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget -qO- http://127.0.0.1/healthz >/dev/null 2>&1 || exit 1",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+networks:
+  factory_game_internal:
+    name: factory-game-tycoon_internal
+  edge:
+    external: true
+    name: high-tide-systems-backend_app-network
+
+volumes:
+  factory_game_prod_data:
+    name: factory-game-tycoon_data
