@@ -17,10 +17,12 @@ export function HiringPanel({ game, onHire }: HiringPanelProps) {
         {game.candidates.map((candidate) => (
           <article key={candidate.id}>
             <span className="candidate-avatar" aria-hidden="true">{specialtyBadge(candidate.specialty)}</span>
-            <div>
+            <div className="candidate-identity">
               <strong>{candidate.name}</strong>
-              <span>
-                {specialtyLabel(candidate.specialty)} · {levelLabel(candidate.level)} · bug {(candidate.bug_rate * 100).toFixed(1)}%
+              <span className="candidate-meta">
+                <span>{specialtyLabel(candidate.specialty)}</span>
+                <span>{levelLabel(candidate.level)}</span>
+                <span>Risco bug {(candidate.bug_rate * 100).toFixed(1)}%</span>
               </span>
               {candidate.expires_after_sprint === null ? null : (
                 <small>Expira no sprint {candidate.expires_after_sprint}</small>

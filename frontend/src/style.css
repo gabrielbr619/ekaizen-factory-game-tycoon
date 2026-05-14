@@ -957,6 +957,7 @@ svg {
 .candidate-list article {
   align-items: center;
   gap: 8px;
+  min-width: 0;
 }
 
 .candidate-avatar {
@@ -982,9 +983,26 @@ svg {
   line-height: 1.2;
 }
 
+.candidate-identity {
+  min-width: 0;
+}
+
+.candidate-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 6px;
+  line-height: 1.2;
+  min-width: 0;
+}
+
+.candidate-meta span {
+  white-space: nowrap;
+}
+
 .candidate-list button {
   background: var(--green);
   border-color: var(--green);
+  flex: 0 0 auto;
   white-space: nowrap;
 }
 
