@@ -3,7 +3,7 @@ import { currencyFormatter } from '../lib/formatters'
 import { allocationTitle, levelLabel, specialtyBadge, specialtyLabel } from '../lib/gameLabels'
 import { type Card, type Developer } from '../types'
 import { PanelTitle } from './PanelTitle'
-import { AccessibleDetail } from './ui/AccessibleDetail'
+import { Tooltip } from './ui/Tooltip'
 
 type DevelopersPanelProps = {
   developers: Developer[]
@@ -26,6 +26,7 @@ export function DevelopersPanel({ developers, selectedCard, selectedDevId, onSel
           const actionLabel = assignedToSelectedCard ? 'Remover' : 'Alocar'
           const targetCardId = assignedToSelectedCard ? null : selectedCard?.id ?? null
           const devDetailId = `dev-detail-${dev.id}`
+          const actionDetailId = `dev-action-detail-${dev.id}`
           const raiseDetail =
             dev.raise_requested_salary === undefined || dev.raise_requested_salary === null
               ? ''
@@ -36,7 +37,8 @@ export function DevelopersPanel({ developers, selectedCard, selectedDevId, onSel
             <article className={`dev-row ${selectedDevId === dev.id ? 'selected' : ''}`} key={dev.id}>
               <button
                 aria-describedby={devDetailId}
-                className="dev-select detail-host"
+                aria-label={`Selecionar dev ${dev.name}`}
+                className="dev-select tooltip-host"
                 onClick={() => onSelectDev(dev.id)}
                 type="button"
               >
@@ -51,17 +53,18 @@ export function DevelopersPanel({ developers, selectedCard, selectedDevId, onSel
                 <span className={`morale ${dev.moral < 30 ? 'low' : ''}`}>
                   {dev.moral}
                 </span>
-                <AccessibleDetail id={devDetailId} text={devDetail} />
+                <Tooltip id={devDetailId} text={devDetail} />
               </button>
               <button
                 aria-label={`${actionLabel} ${dev.name}`}
-                className={`tiny-action ${assignedToSelectedCard ? 'remove-action' : ''}`}
+                aria-describedby={actionDetailId}
+                className={`tiny-action tooltip-host ${assignedToSelectedCard ? 'remove-action' : ''}`}
                 disabled={actionDisabled}
                 onClick={() => onAllocate(dev, targetCardId)}
-                title={allocationTitle(dev, selectedCard, assignedToSelectedCard)}
                 type="button"
               >
                 {actionLabel}
+                <Tooltip id={actionDetailId} text={allocationTitle(dev, selectedCard, assignedToSelectedCard)} />
               </button>
             </article>
           )

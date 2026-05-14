@@ -1,4 +1,4 @@
-import { AccessibleDetail } from './ui/AccessibleDetail'
+import { Tooltip } from './ui/Tooltip'
 
 type KpiProps = {
   label: string
@@ -15,13 +15,13 @@ export function Kpi({ label, value, title, tone = 'neutral' }: KpiProps) {
     <div
       aria-describedby={detailId}
       aria-label={`${label}: ${value}`}
-      className={`kpi kpi-${tone} detail-host`}
+      className={`kpi kpi-${tone} tooltip-host`}
       role="group"
       tabIndex={0}
     >
       <span>{label}</span>
       <strong>{value}</strong>
-      <AccessibleDetail id={detailId} text={detail} />
+      <Tooltip id={detailId} text={detail} />
     </div>
   )
 }

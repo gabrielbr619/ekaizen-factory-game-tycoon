@@ -4,7 +4,7 @@ import { currencyFormatter } from '../lib/formatters'
 import { columnHelp, columnLabel, cycleSummary, nextColumn } from '../lib/gameLabels'
 import { columns, type Card, type Column, type GameState } from '../types'
 import { PanelTitle } from './PanelTitle'
-import { AccessibleDetail } from './ui/AccessibleDetail'
+import { Tooltip } from './ui/Tooltip'
 
 type KanbanBoardProps = {
   game: GameState
@@ -52,6 +52,7 @@ export function KanbanBoard({ game, selectedCardId, onSelectCard, onInvalidDrop,
         {columns.map((column) => {
           const cards = game.cards.filter((card) => card.column === column)
           const limit = game.wip_limits[column] ?? 0
+          const wipDetailId = `wip-detail-${column}`
           const acceptsDraggingCard = draggingCard !== null && nextColumn(draggingCard.column) === column
           const isDropTarget = dropTargetColumn === column
           return (
@@ -76,8 +77,9 @@ export function KanbanBoard({ game, selectedCardId, onSelectCard, onInvalidDrop,
               <header>
                 <div>
                   <strong>{columnLabel(column)}</strong>
-                  <span title="WIP recebido do backend. O servidor bloqueia estouro real.">
+                  <span aria-describedby={wipDetailId} className="tooltip-host" tabIndex={0}>
                     WIP {cards.length}/{limit >= 900 ? '∞' : limit}
+                    <Tooltip id={wipDetailId} text="WIP recebido do backend. O servidor bloqueia estouro real." />
                   </span>
                 </div>
                 <small>{columnHelp(column)}</small>
@@ -136,7 +138,11 @@ function WorkCard({ card, game, selected, dragging, onSelect, onDragStart, onDra
     : 'QA e Done sao resolvidos no fechamento da sprint.'
   const cardDetailId = `card-detail-${card.id}`
   const progressDetailId = `card-progress-detail-${card.id}`
+  const moveDetailId = `move-detail-${card.id}`
   const cardDetail = `Selecionar ${card.title}. ${movementHint} Requisitos: ${card.required_specialties.join(', ')}. Valor ${currencyFormatter.format(card.value)}. Prazo sprint ${card.deadline_sprint}. Progresso ${progress}.`
+  const moveDetail = canMove
+    ? `Mover ${card.title} para ${columnLabel(nextColumn(card.column) ?? card.column)}`
+    : 'QA e Done sao resolvidos no fechamento da sprint'
 
   return (
     <article
@@ -148,7 +154,7 @@ function WorkCard({ card, game, selected, dragging, onSelect, onDragStart, onDra
     >
       <button
         aria-describedby={cardDetailId}
-        className="card-select detail-host"
+        className="card-select tooltip-host"
         aria-label={`Selecionar card ${card.title}`}
         onClick={onSelect}
         type="button"
@@ -156,12 +162,12 @@ function WorkCard({ card, game, selected, dragging, onSelect, onDragStart, onDra
         <span className="card-type">{card.card_type}</span>
         <strong>{card.title}</strong>
         <span>{client?.name ?? 'Cliente'} · {card.size} · prazo S{card.deadline_sprint}</span>
-        <AccessibleDetail id={cardDetailId} text={cardDetail} />
+        <Tooltip id={cardDetailId} text={cardDetail} />
       </button>
       <div
         aria-describedby={progressDetailId}
         aria-label={`Progresso ${progress}`}
-        className="progress-track detail-host"
+        className="progress-track tooltip-host"
         role="meter"
         aria-valuemin={0}
         aria-valuemax={card.points_total}
@@ -169,7 +175,7 @@ function WorkCard({ card, game, selected, dragging, onSelect, onDragStart, onDra
         tabIndex={0}
       >
         <span style={{ width: `${Math.min(100, Math.round((card.progress / card.points_total) * 100))}%` }} />
-        <AccessibleDetail id={progressDetailId} text={`Progresso recebido: ${progress}`} />
+        <Tooltip id={progressDetailId} text={`Progresso recebido: ${progress}`} />
       </div>
       <div className="card-meta">
         <span>{currencyFormatter.format(card.value)}</span>
@@ -179,18 +185,16 @@ function WorkCard({ card, game, selected, dragging, onSelect, onDragStart, onDra
         {assigned.length === 0 ? <span>Sem dev</span> : assigned.map((name) => <span key={name}>{name}</span>)}
       </div>
       <button
-        className="move-button"
+        aria-describedby={moveDetailId}
+        aria-label="Mover"
+        className="move-button tooltip-host"
         disabled={!canMove}
         onClick={onMove}
-        title={
-          canMove
-            ? `Mover ${card.title} para ${columnLabel(nextColumn(card.column) ?? card.column)}`
-            : 'QA e Done sao resolvidos no fechamento da sprint'
-        }
         type="button"
       >
         Mover
         <ChevronRight aria-hidden="true" />
+        <Tooltip id={moveDetailId} text={moveDetail} />
       </button>
     </article>
   )

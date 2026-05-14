@@ -8,6 +8,7 @@ import { KanbanBoard } from './components/KanbanBoard'
 import { OnboardingPanel } from './components/OnboardingPanel'
 import { ClientsPanel, EventsPanel, HistoryPanel, MetricsPanel } from './components/SidePanels'
 import { TopBar, type ThemeMode } from './components/TopBar'
+import { Tooltip } from './components/ui/Tooltip'
 import { columnLabel, kaizenLabel, kaizenTarget } from './lib/gameLabels'
 import { type CommandPayload, type GameApi, type GameState, type HallOfKaizen } from './types'
 
@@ -203,17 +204,20 @@ export function App({ api }: AppProps) {
       </section>
 
       <nav className="view-tabs" aria-label="Telas">
-        <button className={viewMode === 'ops' ? 'active' : ''} onClick={() => setViewMode('ops')} title="Voltar para a sala de controle da partida atual" type="button">
+        <button className={`${viewMode === 'ops' ? 'active ' : ''}tooltip-host`} onClick={() => setViewMode('ops')} type="button">
           <KanbanSquare aria-hidden="true" />
           Jogo
+          <Tooltip describes={false} id="tab-game-detail" text="Voltar para a sala de controle da partida atual" />
         </button>
-        <button className={viewMode === 'hall' ? 'active' : ''} onClick={() => loadHall()} title="Abrir Hall of Kaizen com placar, historico, MVPs e badges" type="button">
+        <button className={`${viewMode === 'hall' ? 'active ' : ''}tooltip-host`} onClick={() => loadHall()} type="button">
           <Award aria-hidden="true" />
           Hall of Kaizen
+          <Tooltip describes={false} id="tab-hall-detail" text="Abrir Hall of Kaizen com placar, historico, MVPs e badges" />
         </button>
-        <button onClick={() => setShowOnboarding(true)} title="Abrir tutorial de como jogar" type="button">
+        <button className="tooltip-host" onClick={() => setShowOnboarding(true)} type="button">
           <CheckCircle2 aria-hidden="true" />
           Tutorial
+          <Tooltip describes={false} id="tab-tutorial-detail" text="Abrir tutorial de como jogar" />
         </button>
       </nav>
 

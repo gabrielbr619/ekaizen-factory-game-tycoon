@@ -5,6 +5,7 @@ import { type GameState, type HallOfKaizen } from '../types'
 import { Kpi } from './Kpi'
 import { PanelTitle } from './PanelTitle'
 import { HistoryPanel } from './SidePanels'
+import { Tooltip } from './ui/Tooltip'
 
 type HallPanelProps = {
   hall: HallOfKaizen | null
@@ -37,9 +38,10 @@ export function HallPanel({ hall, game, onRestart }: HallPanelProps) {
             {hall === null ? 'Placar parcial da partida atual' : `Veredito: ${verdictLabel(source.verdict)}`}
           </p>
         </div>
-        <button onClick={onRestart} title="Iniciar uma nova partida" type="button">
+        <button className="tooltip-host" onClick={onRestart} type="button">
           <RotateCcw aria-hidden="true" />
           Jogar novamente
+          <Tooltip describes={false} id="hall-restart-detail" text="Iniciar uma nova partida" />
         </button>
       </div>
       <div className="hall-scoreboard">

@@ -86,11 +86,11 @@ button:focus-visible {
   width: 1px;
 }
 
-.detail-host {
+.tooltip-host {
   position: relative;
 }
 
-.detail-popover {
+.tooltip-content {
   background: var(--ink);
   border: 1px solid var(--line-strong);
   border-radius: 6px;
@@ -101,12 +101,14 @@ button:focus-visible {
   font-weight: 650;
   left: 0;
   line-height: 1.35;
-  max-width: min(280px, 70vw);
-  min-width: 190px;
+  max-width: none;
+  min-width: 0;
   opacity: 0;
+  overflow-wrap: anywhere;
   padding: 8px 9px;
   pointer-events: none;
   position: absolute;
+  right: 0;
   text-align: left;
   top: calc(100% + 6px);
   transform: translateY(-2px);
@@ -117,9 +119,13 @@ button:focus-visible {
   z-index: 30;
 }
 
-.detail-host:hover > .detail-popover,
-.detail-host:focus-within > .detail-popover,
-.detail-host:focus-visible > .detail-popover {
+.tooltip-content {
+  color: var(--surface);
+}
+
+.tooltip-host:hover > .tooltip-content,
+.tooltip-host:focus-within > .tooltip-content,
+.tooltip-host:focus-visible > .tooltip-content {
   display: block;
   opacity: 1;
   transform: translateY(0);
@@ -622,7 +628,7 @@ svg {
   color: var(--blue);
 }
 
-.detail-host > .detail-popover {
+.tooltip-host > .tooltip-content {
   background: var(--ink);
   color: var(--surface);
   display: none;
@@ -633,9 +639,9 @@ svg {
   white-space: normal;
 }
 
-.detail-host:hover > .detail-popover,
-.detail-host:focus-within > .detail-popover,
-.detail-host:focus-visible > .detail-popover {
+.tooltip-host:hover > .tooltip-content,
+.tooltip-host:focus-within > .tooltip-content,
+.tooltip-host:focus-visible > .tooltip-content {
   display: block;
 }
 

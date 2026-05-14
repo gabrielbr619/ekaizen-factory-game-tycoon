@@ -3,6 +3,7 @@ import { currencyFormatter } from '../lib/formatters'
 import { levelLabel, specialtyBadge, specialtyLabel } from '../lib/gameLabels'
 import { type Candidate, type GameState } from '../types'
 import { PanelTitle } from './PanelTitle'
+import { Tooltip } from './ui/Tooltip'
 
 type HiringPanelProps = {
   game: GameState
@@ -29,11 +30,14 @@ export function HiringPanel({ game, onHire }: HiringPanelProps) {
               )}
             </div>
             <button
+              aria-label={`Contratar ${candidate.name}`}
+              aria-describedby={`candidate-hire-detail-${candidate.id}`}
+              className="tooltip-host"
               onClick={() => onHire(candidate)}
-              title={`Contratar ${candidate.name}. Custo de admissao: ${currencyFormatter.format(candidate.salary)}. Onboarding e processado no backend.`}
               type="button"
             >
               {currencyFormatter.format(candidate.salary)}
+              <Tooltip id={`candidate-hire-detail-${candidate.id}`} text={`Contratar ${candidate.name}. Custo de admissao: ${currencyFormatter.format(candidate.salary)}. Onboarding e processado no backend.`} />
             </button>
           </article>
         ))}

@@ -2,7 +2,7 @@ import { Activity, CheckCircle2, Gauge, History } from 'lucide-react'
 import { currencyFormatter, percentFormatter } from '../lib/formatters'
 import { type GameState, type SprintMetrics } from '../types'
 import { PanelTitle } from './PanelTitle'
-import { AccessibleDetail } from './ui/AccessibleDetail'
+import { Tooltip } from './ui/Tooltip'
 
 type MetricsPanelProps = {
   metrics: SprintMetrics | undefined
@@ -38,10 +38,10 @@ function Metric({ label, value, title }: MetricProps) {
   const detailId = `metric-detail-${label.toLowerCase().replace(/\W+/g, '-')}`
 
   return (
-    <div aria-describedby={detailId} aria-label={`${label}: ${value}`} className="metric detail-host" role="group" tabIndex={0}>
+    <div aria-describedby={detailId} aria-label={`${label}: ${value}`} className="metric tooltip-host" role="group" tabIndex={0}>
       <span>{label}</span>
       <strong>{value}</strong>
-      <AccessibleDetail id={detailId} text={title} />
+      <Tooltip id={detailId} text={title} />
     </div>
   )
 }
@@ -56,9 +56,15 @@ export function ClientsPanel({ game }: ClientsPanelProps) {
       <PanelTitle icon={<CheckCircle2 aria-hidden="true" />} title="Clientes" />
       <div className="client-list">
         {game.clients.map((client) => (
-          <div className={client.active ? '' : 'inactive'} key={client.id} title="Reputacao individual do cliente recebida do servidor.">
+          <div
+            aria-describedby={`client-detail-${client.id}`}
+            className={`${client.active ? '' : 'inactive'} tooltip-host`}
+            key={client.id}
+            tabIndex={0}
+          >
             <span>{client.name}</span>
             <strong>{client.reputation}%</strong>
+            <Tooltip id={`client-detail-${client.id}`} text="Reputacao individual do cliente recebida do servidor." />
           </div>
         ))}
       </div>

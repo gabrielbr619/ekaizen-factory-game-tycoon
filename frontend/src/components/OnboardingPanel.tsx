@@ -1,5 +1,6 @@
 import { useEffect, useRef, type KeyboardEvent } from 'react'
 import { AlertTriangle, Award, Gauge, KanbanSquare, Play, Sparkles, Users } from 'lucide-react'
+import { Tooltip } from './ui/Tooltip'
 
 type OnboardingPanelProps = {
   sprint: number
@@ -68,8 +69,9 @@ export function OnboardingPanel({ sprint, onDismiss }: OnboardingPanelProps) {
             <span className="eyebrow">Sprint {sprint} · guia rapido</span>
             <h2 id="onboarding-title">Tutorial inicial</h2>
           </div>
-          <button className="secondary-action" onClick={onDismiss} title="Fechar tutorial e continuar no jogo" type="button">
+          <button className="secondary-action tooltip-host" onClick={onDismiss} type="button">
             Fechar
+            <Tooltip describes={false} id="close-tutorial-detail" text="Fechar tutorial e continuar no jogo" />
           </button>
         </div>
 
@@ -139,14 +141,14 @@ export function OnboardingPanel({ sprint, onDismiss }: OnboardingPanelProps) {
         <div className="onboarding-footer">
           <p>O jogo ja esta carregado atras deste painel. Voce pode reabrir este tutorial pela aba Tutorial.</p>
           <button
-            className="primary-action"
+            className="primary-action tooltip-host"
             onClick={onDismiss}
             ref={startButtonRef}
-            title="Fechar tutorial inicial e comecar a jogar"
             type="button"
           >
             <Play aria-hidden="true" />
             Começar partida
+            <Tooltip describes={false} id="start-game-detail" text="Fechar tutorial inicial e comecar a jogar" />
           </button>
         </div>
       </div>
