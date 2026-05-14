@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from app.domain.models import Card, Column, GameState, KaizenType, TimelineEvent
-from app.domain.rules.work import find_dev, specialty_matches
+from app.domain.rules.work import find_dev, stage_required_points, worker_matches_stage
 
 
 def find_card(game: GameState, card_id: str) -> Card:
@@ -38,10 +38,15 @@ def move_card(game: GameState, card_id: str, target: Column) -> GameState:
         raise ValueError("Cards devem andar uma coluna por vez.")
     if target != Column.DONE and count_column(game, target) >= game.wip_limits[target.value]:
         raise ValueError("WIP limit da coluna foi atingido.")
-    if target == Column.DONE and card.progress < card.points_total:
+    is_work_column = card.column in {Column.ANALYSIS, Column.DEVELOPMENT, Column.QA}
+    if is_work_column and card.progress < stage_required_points(card):
+        raise ValueError("Card so pode avancar apos concluir o trabalho da coluna atual.")
+    if target == Column.DONE and card.progress < stage_required_points(card):
         raise ValueError("Card so pode ir para Done apos concluir o trabalho de QA.")
     if card.blocked_by_jidoka and target == Column.DONE:
         raise ValueError("Jidoka ativo: trate o bug critico antes de concluir.")
+    if target == Column.DONE:
+        raise ValueError("QA conclui cards no fim da sprint apos checagem de qualidade.")
     card.cycle_times[card.column.value] = game.sprint - card.entered_column_sprint
     card.column = target
     card.entered_column_sprint = game.sprint
@@ -67,7 +72,7 @@ def allocate_dev(game: GameState, dev_id: str, card_id: str | None) -> GameState
         card = find_card(game, card_id)
         if card.column not in {Column.ANALYSIS, Column.DEVELOPMENT, Column.QA}:
             raise ValueError("So e possivel alocar em Analise, Dev ou QA.")
-        if KaizenType.POKA_YOKE in game.active_kaizens and not specialty_matches(dev, card):
+        if KaizenType.POKA_YOKE in game.active_kaizens and not worker_matches_stage(dev, card):
             raise ValueError("Poka-Yoke bloqueou alocacao fora da especialidade.")
         card.assigned_dev_ids.append(dev_id)
         game.timeline.append(

@@ -1,3 +1,5 @@
+import random
+
 from app.domain.engine import (
     allocate_dev,
     apply_kaizen,
@@ -7,14 +9,59 @@ from app.domain.engine import (
     move_card,
     process_sprint,
 )
-from app.domain.models import Column, KaizenType, SprintMetrics
+from app.domain.models import (
+    Card,
+    CardSize,
+    CardType,
+    Column,
+    Developer,
+    KaizenType,
+    Level,
+    Specialty,
+    SprintMetrics,
+)
+from app.domain.rules.events import apply_event
+from app.domain.rules.work import (
+    REPUTATION_GAIN_ON_DELIVERY,
+    level_profile,
+    penalize_client,
+    specialty_matches,
+    stage_required_points,
+    update_worker_moral,
+)
+from app.domain.sprint_processor import RECURRING_REVENUE_PER_ACTIVE_CLIENT
+
+
+def _developer(dev_id: str, level: Level, specialty: Specialty = Specialty.BACKEND) -> Developer:
+    speed, salary, bug_rate = level_profile(level)
+    return Developer(dev_id, dev_id, specialty, level, speed, salary, bug_rate, 80, "backend")
+
+
+def _large_backend_card(card_id: str = "large-card") -> Card:
+    return Card(
+        id=card_id,
+        title="ERP fabril complexo",
+        card_type=CardType.FEATURE,
+        size=CardSize.G,
+        required_specialties=[Specialty.BACKEND],
+        points_total=60,
+        progress=0,
+        value=15_000,
+        deadline_sprint=10,
+        client_id="c1",
+        column=Column.DEVELOPMENT,
+        created_sprint=1,
+        entered_column_sprint=1,
+    )
 
 
 def test_process_sprint_applies_progress_and_moral_drain() -> None:
     game = create_game(123)
     dev = game.developers[0]
-    card = next(item for item in game.cards if dev.specialty in item.required_specialties)
+    card = next(item for item in game.cards if specialty_matches(dev, item))
     game = move_card(game, card.id, Column.ANALYSIS)
+    card.progress = card.points_total
+    game = move_card(game, card.id, Column.DEVELOPMENT)
     game = allocate_dev(game, dev.id, card.id)
     initial_moral = dev.moral
 
@@ -41,11 +88,11 @@ def test_poka_yoke_blocks_wrong_specialty() -> None:
     game.kaizen_points = 1
     game = apply_kaizen(game, KaizenType.POKA_YOKE)
     card = game.cards[0]
-    po_dev = game.developers[1]
+    qa_dev = game.developers[2]
     game = move_card(game, card.id, Column.ANALYSIS)
 
     try:
-        allocate_dev(game, po_dev.id, card.id)
+        allocate_dev(game, qa_dev.id, card.id)
     except ValueError as exc:
         assert "Poka-Yoke" in str(exc)
     else:
@@ -84,6 +131,152 @@ def test_wip_limit_blocks_overflow() -> None:
         assert "WIP limit" in str(exc)
     else:
         raise AssertionError("Expected WIP overflow to be rejected")
+
+
+def test_card_cannot_advance_before_current_column_work_is_done() -> None:
+    game = create_game(123)
+    card = game.cards[0]
+    game = move_card(game, card.id, Column.ANALYSIS)
+
+    try:
+        move_card(game, card.id, Column.DEVELOPMENT)
+    except ValueError as exc:
+        assert "coluna atual" in str(exc)
+    else:
+        raise AssertionError("Expected unfinished analysis to block movement")
+
+
+def test_analysis_and_qa_use_smaller_stage_effort_than_development() -> None:
+    game = create_game(123)
+    card = game.cards[0]
+
+    card.column = Column.ANALYSIS
+    assert stage_required_points(card) < card.points_total
+    card.column = Column.DEVELOPMENT
+    assert stage_required_points(card) == card.points_total
+    card.column = Column.QA
+    assert stage_required_points(card) < card.points_total
+
+
+def test_qa_worker_matches_qa_column() -> None:
+    game = create_game(123)
+    card = game.cards[0]
+    qa_dev = next(dev for dev in game.developers if dev.specialty == Specialty.QA)
+    card.column = Column.QA
+    card.assigned_dev_ids = [qa_dev.id]
+    initial_moral = qa_dev.moral
+
+    update_worker_moral(game, card, [qa_dev])
+
+    assert qa_dev.moral == initial_moral - 2
+
+
+def test_moving_completed_qa_card_to_done_pays_value_once() -> None:
+    game = create_game(123)
+    card = game.cards[0]
+    dev = game.developers[0]
+    card.column = Column.QA
+    card.progress = stage_required_points(card)
+    card.assigned_dev_ids = [dev.id]
+    client = next(item for item in game.clients if item.id == card.client_id)
+    initial_reputation = client.reputation
+    initial_budget = game.budget
+
+    try:
+        move_card(game, card.id, Column.DONE)
+    except ValueError as exc:
+        assert "fim da sprint" in str(exc)
+    else:
+        raise AssertionError("Expected manual QA to Done movement to be rejected")
+
+    game = process_sprint(game)
+
+    assert card.column == Column.DONE
+    assert card.assigned_dev_ids == []
+    assert dev.cards_delivered == 1
+    assert game.budget == initial_budget + card.value + (
+        3 * RECURRING_REVENUE_PER_ACTIVE_CLIENT
+    ) - game.fixed_cost - sum(
+        item.salary for item in game.developers if item.active
+    )
+    assert client.reputation == initial_reputation + REPUTATION_GAIN_ON_DELIVERY
+
+
+def test_undetected_qa_bug_emerges_later_as_production_bug() -> None:
+    game = create_game(6)
+    card = game.cards[0]
+    qa_dev = next(dev for dev in game.developers if dev.specialty == Specialty.QA)
+    qa_dev.bug_rate = 1.0
+    card.column = Column.QA
+    card.progress = stage_required_points(card)
+    card.assigned_dev_ids = [qa_dev.id]
+    card.latent_bug = True
+    initial_reputation = next(
+        client for client in game.clients if client.id == card.client_id
+    ).reputation
+
+    game = process_sprint(game)
+
+    assert card.column == Column.DONE
+    assert game.scheduled_production_bugs
+    due_sprint = game.scheduled_production_bugs[0].due_sprint
+    while game.sprint <= due_sprint:
+        game = process_sprint(game)
+
+    client = next(item for item in game.clients if item.id == card.client_id)
+    assert client.reputation <= initial_reputation
+    assert any(
+        item.card_type == CardType.BUG
+        and card.title in item.title
+        and item.column == Column.BACKLOG
+        for item in game.cards
+    )
+
+
+def test_card_is_cancelled_after_three_late_sprints() -> None:
+    game = create_game(123)
+    card = game.cards[0]
+    client = next(item for item in game.clients if item.id == card.client_id)
+    card.column = Column.ANALYSIS
+    card.deadline_sprint = game.sprint - 3
+    initial_reputation = client.reputation
+
+    game = process_sprint(game)
+
+    assert card not in game.cards
+    assert client.reputation == initial_reputation - 40
+    assert any(event.kind == "cancel" and card.title in event.message for event in game.timeline)
+
+
+def test_active_clients_generate_recurring_revenue() -> None:
+    game = create_game(123)
+    initial_budget = game.budget
+
+    game = process_sprint(game)
+
+    assert game.budget == initial_budget + (
+        3 * RECURRING_REVENUE_PER_ACTIVE_CLIENT
+    ) - game.fixed_cost - sum(
+        item.salary for item in game.developers if item.active
+    )
+
+
+def test_client_cancels_on_next_sprint_after_reputation_drops_below_threshold() -> None:
+    game = create_game(123)
+    client = game.clients[0]
+    client.reputation = 31
+
+    penalize_client(game, client.id, 5)
+
+    assert client.active
+    assert client.cancellation_sprint == game.sprint + 1
+    game.sprint += 1
+    game = process_sprint(game)
+    assert not client.active
+
+
+def test_god_tier_profile_matches_pdf() -> None:
+    assert level_profile(Level.GOD_TIER) == (40, 3_500, 0.005)
 
 
 def test_oee_calculation() -> None:
@@ -136,3 +329,105 @@ def test_seed_reproduces_initial_state() -> None:
     assert [candidate.level for candidate in first.candidates] == [
         candidate.level for candidate in second.candidates
     ]
+
+
+def test_urgent_client_event_adds_playable_short_deadline_card() -> None:
+    game = create_game(123)
+    initial_cards = len(game.cards)
+
+    message = apply_event(game, "urgent-client", random.Random(1))
+
+    urgent_card = game.cards[-1]
+    assert "Cliente urgente" in message
+    assert len(game.cards) == initial_cards + 1
+    assert urgent_card.card_type == CardType.HOTFIX
+    assert urgent_card.value > 15_000
+    assert urgent_card.deadline_sprint == game.sprint + 2
+    assert urgent_card.column == Column.BACKLOG
+
+
+def test_referral_event_adds_discount_candidate_to_pool() -> None:
+    game = create_game(123)
+    initial_candidates = len(game.candidates)
+
+    message = apply_event(game, "referral", random.Random(2))
+
+    candidate = game.candidates[-1]
+    profile_salary = level_profile(candidate.level)[1]
+    assert "Indicacao" in message
+    assert len(game.candidates) == initial_candidates + 1
+    assert candidate.salary == int(profile_salary * 0.8)
+    assert candidate.expires_after_sprint == game.sprint + 1
+
+
+def test_retro_bug_event_turns_done_card_into_backlog_bug() -> None:
+    game = create_game(123)
+    done_card = game.cards[0]
+    done_card.column = Column.DONE
+
+    message = apply_event(game, "retro-bug", random.Random(3))
+
+    bug_card = game.cards[-1]
+    assert "Bug retroativo" in message
+    assert bug_card.card_type == CardType.BUG
+    assert done_card.title in bug_card.title
+    assert bug_card.column == Column.BACKLOG
+    assert bug_card.deadline_sprint == game.sprint + 2
+
+
+def test_junior_alone_on_large_card_makes_no_progress() -> None:
+    game = create_game(123)
+    junior = _developer("junior", Level.JUNIOR)
+    card = _large_backend_card()
+    game.developers = [junior]
+    game.cards = [card]
+    card.assigned_dev_ids = [junior.id]
+
+    game = process_sprint(game)
+
+    assert card.progress == 0
+    assert junior.moral < 80
+
+
+def test_pleno_needs_senior_mentor_on_large_card() -> None:
+    game = create_game(123)
+    pleno = _developer("pleno", Level.PLENO)
+    senior = _developer("senior", Level.SENIOR)
+    card = _large_backend_card()
+    game.developers = [pleno, senior]
+    game.cards = [card]
+    card.assigned_dev_ids = [pleno.id]
+
+    game = process_sprint(game)
+
+    assert card.progress == 0
+
+    card.progress = 0
+    card.assigned_dev_ids = [pleno.id, senior.id]
+    game = process_sprint(game)
+
+    assert card.progress > 0
+
+
+def test_god_tier_leaves_after_three_trivial_sprints() -> None:
+    game = create_game(123)
+    god = _developer("god", Level.GOD_TIER)
+    card = game.cards[0]
+    card.size = CardSize.P
+    card.column = Column.DEVELOPMENT
+    card.progress = 0
+    card.points_total = 10
+    card.assigned_dev_ids = [god.id]
+    game.developers = [god]
+    initial_reputations = {client.id: client.reputation for client in game.clients}
+
+    for _ in range(3):
+        card.column = Column.DEVELOPMENT
+        card.progress = 0
+        card.assigned_dev_ids = [god.id]
+        game = process_sprint(game)
+
+    assert not god.active
+    assert all(
+        client.reputation == initial_reputations[client.id] - 15 for client in game.clients
+    )

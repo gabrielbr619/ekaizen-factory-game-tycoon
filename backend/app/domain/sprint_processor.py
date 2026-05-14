@@ -3,7 +3,16 @@ from __future__ import annotations
 import random
 
 from app.domain.game_factory import generate_candidates, generate_cards
-from app.domain.models import Column, GameState, SprintMetrics, TimelineEvent, Verdict
+from app.domain.models import (
+    Card,
+    CardType,
+    Column,
+    GameState,
+    ScheduledProductionBug,
+    SprintMetrics,
+    TimelineEvent,
+    Verdict,
+)
 from app.domain.rules.andon import refresh_alerts
 from app.domain.rules.events import generate_events
 from app.domain.rules.flow import active_cards, cards_in_work
@@ -18,31 +27,80 @@ from app.domain.rules.work import (
     bug_happens,
     find_dev,
     finish_card,
+    handle_god_tier_retention,
     handle_resignations,
     payroll,
     penalize_client,
     qa_detection_chance,
     recover_idle_morale,
     sprint_progress,
+    stage_required_points,
     update_worker_moral,
 )
+
+RECURRING_REVENUE_PER_ACTIVE_CLIENT = 1_700
+
+
+def _resolve_scheduled_production_bugs(game: GameState) -> int:
+    due_bugs = [
+        bug for bug in game.scheduled_production_bugs if bug.due_sprint <= game.sprint
+    ]
+    game.scheduled_production_bugs = [
+        bug for bug in game.scheduled_production_bugs if bug.due_sprint > game.sprint
+    ]
+    for bug in due_bugs:
+        penalize_client(game, bug.client_id, 20)
+        game.cards.append(
+            Card(
+                id=f"prod-bug-{game.sprint}-{bug.source_card_id}",
+                title=f"Bug em producao: {bug.source_title}",
+                card_type=CardType.BUG,
+                size=bug.size,
+                required_specialties=list(bug.required_specialties),
+                points_total=8 if bug.size.value == "P" else 25 if bug.size.value == "M" else 60,
+                progress=0,
+                value=0,
+                deadline_sprint=game.sprint + 4,
+                client_id=bug.client_id,
+                column=Column.BACKLOG,
+                created_sprint=game.sprint,
+                entered_column_sprint=game.sprint,
+            )
+        )
+        game.timeline.append(
+            TimelineEvent(
+                game.sprint,
+                "production-bug",
+                f"Bug em producao surgiu em {bug.source_title}.",
+            )
+        )
+    return len(due_bugs)
 
 
 def process_sprint(game: GameState) -> GameState:
     if game.verdict != Verdict.PLAYING:
         return game
+    for client in game.clients:
+        cancellation_due = (
+            client.cancellation_sprint is not None and game.sprint >= client.cancellation_sprint
+        )
+        if client.active and cancellation_due:
+            client.active = False
+            game.timeline.append(
+                TimelineEvent(game.sprint, "client-cancel", f"{client.name} cancelou o contrato.")
+            )
     rng = random.Random(game.seed + game.sprint * 97)
     delivered = 0
     delivered_on_time = 0
     throughput_value = 0
-    production_bugs = 0
+    production_bugs = _resolve_scheduled_production_bugs(game)
     for card in cards_in_work(game):
         workers = [find_dev(game, dev_id) for dev_id in card.assigned_dev_ids]
         if not workers:
             continue
         card.progress += sprint_progress(game, card, workers, rng)
         update_worker_moral(game, card, workers)
-        if card.progress >= card.points_total and card.column == Column.QA:
+        if card.progress >= stage_required_points(card) and card.column == Column.QA:
             if bug_happens(game, card, workers, rng):
                 if rng.random() < qa_detection_chance(game, workers):
                     card.column = Column.DEVELOPMENT
@@ -52,9 +110,21 @@ def process_sprint(game: GameState) -> GameState:
                         TimelineEvent(game.sprint, "qa-bug", f"QA encontrou bug em {card.title}.")
                     )
                 else:
-                    production_bugs += 1
-                    card.blocked_by_jidoka = True
-                    penalize_client(game, card.client_id, 20)
+                    delivered += 1
+                    if game.sprint <= card.deadline_sprint:
+                        delivered_on_time += 1
+                    throughput_value += card.value
+                    game.scheduled_production_bugs.append(
+                        ScheduledProductionBug(
+                            source_card_id=card.id,
+                            source_title=card.title,
+                            client_id=card.client_id,
+                            size=card.size,
+                            required_specialties=list(card.required_specialties),
+                            due_sprint=game.sprint + rng.randint(1, 3),
+                        )
+                    )
+                    finish_card(game, card, workers, clean=False)
             else:
                 delivered += 1
                 if game.sprint <= card.deadline_sprint:
@@ -62,13 +132,25 @@ def process_sprint(game: GameState) -> GameState:
                 throughput_value += card.value
                 finish_card(game, card, workers)
     recover_idle_morale(game)
-    for card in active_cards(game):
+    handle_god_tier_retention(game)
+    for card in list(active_cards(game)):
         if game.sprint > card.deadline_sprint and card.column != Column.DONE:
             penalize_client(game, card.client_id, 15)
+            if game.sprint - card.deadline_sprint >= 3:
+                penalize_client(game, card.client_id, 25)
+                card.assigned_dev_ids = []
+                game.cards.remove(card)
+                game.timeline.append(
+                    TimelineEvent(game.sprint, "cancel", f"{card.title} foi cancelado por atraso.")
+                )
     heijunka_bonus = calculate_heijunka_bonus(game, delivered, throughput_value)
+    recurring_revenue = sum(
+        RECURRING_REVENUE_PER_ACTIVE_CLIENT for client in game.clients if client.active
+    )
     sprint_cost = game.fixed_cost + payroll(game)
-    game.budget += throughput_value + heijunka_bonus - sprint_cost
-    game.accumulated_profit += throughput_value + heijunka_bonus - sprint_cost
+    sprint_result = throughput_value + heijunka_bonus + recurring_revenue - sprint_cost
+    game.budget += sprint_result
+    game.accumulated_profit += sprint_result
     game.sprint += 1
     if game.sprint <= 30:
         game.phase = "recovery"
@@ -78,7 +160,13 @@ def process_sprint(game: GameState) -> GameState:
         game.kaizen_points += 1
     if game.sprint % 3 == 1:
         game.candidates = generate_candidates(game)
-    game.cards.extend(generate_cards(game, 2 + min(3, game.sprint // 8)))
+    if game.sprint <= 20:
+        incoming_cards = 1 if game.sprint % 3 == 1 else 0
+    elif game.sprint <= 30:
+        incoming_cards = 1 if game.sprint % 2 == 1 else 0
+    else:
+        incoming_cards = 1
+    game.cards.extend(generate_cards(game, incoming_cards))
     game.pending_events = generate_events(game, rng)
     handle_resignations(game, rng)
     metrics = SprintMetrics(

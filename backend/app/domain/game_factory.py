@@ -89,7 +89,7 @@ def create_game(seed: int | None = None) -> GameState:
         badges=[],
         kaizen_impacts=[],
     )
-    game.cards.extend(generate_cards(game, 5))
+    game.cards.extend(generate_cards(game, 2))
     game.candidates = generate_candidates(game)
     return refresh_alerts(game)
 
@@ -105,9 +105,10 @@ def generate_cards(game: GameState, amount: int) -> list[Card]:
             penalize_client(game, rng.choice(active_clients).id, 10)
             continue
         size = rng.choices([CardSize.P, CardSize.M, CardSize.G], weights=[50, 35, 15], k=1)[0]
+        type_weights = [65, 10, 15, 5, 5] if game.sprint <= 8 else [55, 12, 12, 11, 10]
         card_type = rng.choices(
             [CardType.FEATURE, CardType.BUG, CardType.REFACTOR, CardType.INFRA, CardType.HOTFIX],
-            weights=[55, 12, 12, 11, 10],
+            weights=type_weights,
             k=1,
         )[0]
         points, value, deadline = size_profile(size)

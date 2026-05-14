@@ -68,6 +68,7 @@ class Client:
     name: str
     reputation: int
     active: bool = True
+    cancellation_sprint: int | None = None
 
 
 @dataclass
@@ -109,6 +110,16 @@ class Card:
     latent_bug: bool = False
     blocked_by_jidoka: bool = False
     cycle_times: dict[str, int] = field(default_factory=dict)
+
+
+@dataclass
+class ScheduledProductionBug:
+    source_card_id: str
+    source_title: str
+    client_id: str
+    size: CardSize
+    required_specialties: list[Specialty]
+    due_sprint: int
 
 
 @dataclass
@@ -183,5 +194,6 @@ class GameState:
     consecutive_negative_budget_sprints: int
     heijunka_streak: int
     badges: list[str]
+    scheduled_production_bugs: list[ScheduledProductionBug] = field(default_factory=list)
     kaizen_impacts: list[KaizenImpact] = field(default_factory=list)
     verdict: Verdict = Verdict.PLAYING

@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import random
+from math import ceil
 
 from app.domain.models import (
     Card,
     CardSize,
     Client,
+    Column,
     Developer,
     GameState,
     KaizenType,
@@ -13,6 +15,8 @@ from app.domain.models import (
     Specialty,
     TimelineEvent,
 )
+
+REPUTATION_GAIN_ON_DELIVERY = 20
 
 
 def find_dev(game: GameState, dev_id: str) -> Developer:
@@ -37,6 +41,36 @@ def specialty_matches(dev: Developer, card: Card) -> bool:
     return dev.specialty in card.required_specialties
 
 
+def worker_matches_stage(dev: Developer, card: Card) -> bool:
+    if card.column == Column.ANALYSIS:
+        return dev.specialty in {Specialty.PO, Specialty.FULLSTACK}
+    if card.column == Column.QA:
+        return dev.specialty == Specialty.QA
+    return specialty_matches(dev, card)
+
+
+def has_complexity_mentor(workers: list[Developer]) -> bool:
+    return any(worker.level in {Level.SENIOR, Level.GOD_TIER} for worker in workers)
+
+
+def can_contribute_to_card_level(dev: Developer, card: Card, workers: list[Developer]) -> bool:
+    if card.size != CardSize.G:
+        return True
+    if dev.level == Level.JUNIOR:
+        return len(workers) > 1
+    if dev.level == Level.PLENO:
+        return has_complexity_mentor(workers)
+    return True
+
+
+def stage_required_points(card: Card) -> int:
+    if card.column == Column.ANALYSIS:
+        return max(3, ceil(card.points_total * 0.35))
+    if card.column == Column.QA:
+        return max(3, ceil(card.points_total * 0.35))
+    return card.points_total
+
+
 def moral_multiplier(dev: Developer) -> float:
     if dev.moral >= 70:
         return 1.0
@@ -56,11 +90,13 @@ def sprint_progress(
     multiplier = multiplier_by_count.get(len(workers), 2.4)
     total = 0.0
     for worker in workers:
+        if not can_contribute_to_card_level(worker, card, workers):
+            continue
         speed = worker.speed * moral_multiplier(worker)
         if worker.onboarding_sprints > 0:
             speed *= 0.5
             worker.onboarding_sprints -= 1
-        if not specialty_matches(worker, card):
+        if not worker_matches_stage(worker, card):
             if worker.specialty == Specialty.FULLSTACK and card.required_specialties[0] in {
                 Specialty.FRONTEND,
                 Specialty.BACKEND,
@@ -87,12 +123,18 @@ def sprint_progress(
 def update_worker_moral(game: GameState, card: Card, workers: list[Developer]) -> None:
     for worker in workers:
         drain = 2
-        if not specialty_matches(worker, card):
+        if not worker_matches_stage(worker, card):
             drain += 4
         if (
             card.size == CardSize.G
             and worker.level == Level.JUNIOR
             and KaizenType.MENTORING not in game.active_kaizens
+        ):
+            drain += 8
+        if (
+            card.size == CardSize.G
+            and worker.level == Level.PLENO
+            and not has_complexity_mentor(workers)
         ):
             drain += 8
         if game.sprint - card.created_sprint > 3:
@@ -138,7 +180,9 @@ def qa_detection_chance(game: GameState, workers: list[Developer]) -> float:
     return min(0.95, base)
 
 
-def finish_card(game: GameState, card: Card, workers: list[Developer]) -> None:
+def finish_card(
+    game: GameState, card: Card, workers: list[Developer], *, clean: bool = True
+) -> None:
     from app.domain.models import Column
 
     card.column = Column.DONE
@@ -146,9 +190,10 @@ def finish_card(game: GameState, card: Card, workers: list[Developer]) -> None:
     card.assigned_dev_ids = []
     for worker in workers:
         worker.cards_delivered += 1
-        worker.clean_cards_delivered += 1
+        if clean:
+            worker.clean_cards_delivered += 1
     client = find_client(game, card.client_id)
-    client.reputation = min(100, client.reputation + 4)
+    client.reputation = min(100, client.reputation + REPUTATION_GAIN_ON_DELIVERY)
     game.timeline.append(
         TimelineEvent(game.sprint, "done", f"{card.title} entregue para {client.name}.")
     )
@@ -157,8 +202,8 @@ def finish_card(game: GameState, card: Card, workers: list[Developer]) -> None:
 def penalize_client(game: GameState, client_id: str, points: int) -> None:
     client = find_client(game, client_id)
     client.reputation = max(0, client.reputation - points)
-    if client.reputation < 30:
-        client.active = False
+    if client.reputation < 30 and client.cancellation_sprint is None:
+        client.cancellation_sprint = game.sprint + 1
 
 
 def payroll(game: GameState) -> int:
@@ -182,6 +227,31 @@ def handle_resignations(game: GameState, rng: random.Random) -> None:
             )
 
 
+def handle_god_tier_retention(game: GameState) -> None:
+    for dev in game.developers:
+        if not dev.active or dev.level != Level.GOD_TIER:
+            continue
+        assigned_cards = [card for card in game.cards if dev.id in card.assigned_dev_ids]
+        if not assigned_cards or all(card.size != CardSize.G for card in assigned_cards):
+            dev.god_low_work_streak += 1
+            dev.moral = max(0, dev.moral - 4)
+        else:
+            dev.god_low_work_streak = 0
+        should_leave = dev.moral < 50 or dev.god_low_work_streak >= 3
+        if not should_leave:
+            continue
+        dev.active = False
+        for client in game.clients:
+            if client.active:
+                client.reputation = max(0, client.reputation - 15)
+        for card in game.cards:
+            if dev.id in card.assigned_dev_ids:
+                card.assigned_dev_ids.remove(dev.id)
+        game.timeline.append(
+            TimelineEvent(game.sprint, "god-tier-exit", f"{dev.name} deixou a empresa.")
+        )
+
+
 def train_dev(dev: Developer) -> None:
     if dev.level == Level.JUNIOR:
         dev.level = Level.PLENO
@@ -199,4 +269,4 @@ def level_profile(level: Level) -> tuple[int, int, float]:
         return 12, 700, 0.04
     if level == Level.SENIOR:
         return 22, 1_500, 0.02
-    return 66, 7_500, 0.005
+    return 40, 3_500, 0.005
