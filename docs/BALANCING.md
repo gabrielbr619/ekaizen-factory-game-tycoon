@@ -49,9 +49,9 @@ Justificativa: o PDF afirma que, quando um cliente cancela, "receita recorrente 
 
 ### Ganho de reputacao por entrega limpa
 
-Valor atual: `+20` de reputacao para o cliente do card entregue.
+Valor atual: `+50` de reputacao para o cliente do card entregue.
 
-Justificativa: o PDF define que reputacao sobe ao entregar cards no prazo sem bug, mas nao fixa o valor positivo. As penalidades negativas sao altas e explicitas (`-15` por sprint atrasado e `-20` por bug em producao), entao a recompensa positiva precisa ser forte o suficiente para tornar entrega limpa uma estrategia real.
+Justificativa: o PDF define que reputacao sobe ao entregar cards no prazo sem bug, mas nao fixa o valor positivo. As penalidades negativas sao altas e explicitas (`-15` por sprint atrasado, `-25` no cancelamento e `-20` por bug em producao), entao a recompensa positiva precisa ser forte o suficiente para tornar entrega limpa uma estrategia real.
 
 ### Geração de demanda por estagio
 
@@ -71,6 +71,8 @@ Na fase inicial, cards de infra/hotfix aparecem com menor frequencia. A distribu
 Justificativa: o time inicial nao possui DevOps nem Frontend dedicado. O PDF permite que a empresa comece em crise, mas a primeira fase precisa dar ao jogador tempo para contratar e aplicar Kaizens antes de aumentar a variedade de especialidades.
 
 ## Evidencia de jogabilidade
+
+### Rodada anterior, antes dos eventos avancados recentes
 
 Antes do balanceamento, um bot que seguia a melhor heuristica disponivel testou 200 seeds e encontrou:
 
@@ -98,6 +100,131 @@ min_moral 50
 delivered_cards 10
 throughput R$ 32.000
 ```
+
+### Revalidacao apos eventos avancados e regras de retencao
+
+Em 2026-05-14, uma nova simulacao heuristica foi executada contra o motor real do backend por meio de `backend/scripts/balance_simulation.py`. O bot:
+
+- joga seeds deterministicas usando `create_game`, `move_card`, `allocate_dev`, `hire_candidate`, `apply_kaizen` e `process_sprint`;
+- prioriza nao lotar WIP, puxa cards por valor/prazo/risco, cobre especialidades faltantes por contratacao e respeita a regra de card G para nao depender de Junior/Pleno sem Senior+;
+- usa Kaizens para descanso, treino, QA automation, marketing, DevOps culture e aumento de WIP quando ha pontos e risco operacional;
+- evita contratar Senior/God-tier cedo demais quando o caixa nao suporta o risco de retencao e pedido de aumento.
+
+Resultado principal antes da ultima correcao de balanceamento:
+
+```text
+seeds 500
+master-kaizen 0
+survived 0
+bankrupt 500
+best seed 279
+verdict bankrupt
+sprint 14
+budget R$ 35.320
+accumulated_profit R$ 29.160
+reputation 16
+active_clients 1
+active_devs 5
+min_moral 7
+delivered_cards 3
+throughput R$ 38.000
+average_oee 0.730
+kaizens rest-space 1, train-dev 1
+```
+
+Medias da rodada:
+
+```text
+budget R$ 3.805,40
+accumulated_profit R$ -1.952,52
+reputation 5,77
+active_clients 0,94
+active_devs 5,36
+min_moral 35,72
+delivered_cards 2,16
+throughput R$ 5.444
+```
+
+Sinais de causa raiz observados na amostra:
+
+- 325/500 falencias aconteceram ainda com budget positivo, indicando que a derrota esta vindo principalmente por reputacao/clientes, nao por caixa.
+- 486/500 falencias terminaram com reputacao geral abaixo de 20.
+- As mortes se concentraram cedo: sprints 13, 14, 15 e 16 concentraram a maior parte das quebras.
+- Cada partida recebeu em media 23,2 eventos mutantes antes de falir, 4,52 cancelamentos de card, 2,06 cancelamentos de cliente e 2,38 saidas por pedido de aumento.
+- O melhor seed tinha lucro acumulado suficiente para vitoria, mas faliu por reputacao 16 antes de chegar ao periodo de estabilizacao.
+
+Controle isolado sem eventos aleatorios, mantendo o restante do dominio:
+
+```text
+seeds 500
+master-kaizen 0
+survived 12
+bankrupt 488
+best seed 324
+verdict survived
+sprint 36
+budget R$ 37.900
+accumulated_profit R$ 31.900
+reputation 68
+active_clients 3
+active_devs 5
+min_moral 13
+delivered_cards 16
+throughput R$ 40.000
+```
+
+Essa rodada de controle nao prova que o jogo base esta bem balanceado; ela mostra que os eventos avancados sem ponderacao adequada transformavam uma simulacao ja dificil em uma simulacao sem caminho observado de sobrevivencia ou Master Kaizen para o bot.
+
+### Revalidacao apos correcoes de conformidade PDF e ponderacao
+
+Depois das correcoes de conformidade do PDF, os eventos obrigatorios cobertos sao:
+
+- Cliente urgente com prazo de 2 sprints.
+- Pedido de aumento com prazo de 2 sprints.
+- Bug retroativo.
+- Headhunter em Senior/God-tier.
+- Conferencia com +20 moral e 1 sprint improdutivo.
+- Auditoria de OEE que cancela 1 cliente se OEE medio ficar abaixo de 50%.
+- Tendencia de mercado por 5 sprints.
+- Indicacao com candidato a salario 20% menor.
+
+O RNG continua disparando 1 a 3 eventos por sprint, mas usa pesos por estagio para evitar que eventos destrutivos dominem a fase inicial. Eventos de oportunidade, como indicacao e conferencia, aparecem com peso maior; eventos severos entram com peso menor e/ou depois de a empresa ter algum tempo de reacao.
+
+Resultado atual de referencia, revalidado em 2.000 seeds:
+
+```text
+seeds 2000
+master-kaizen 17
+survived 155
+bankrupt 1828
+best seed 1580
+verdict master-kaizen
+sprint 36
+budget R$ 76.500
+accumulated_profit R$ 69.800
+reputation 85
+active_clients 2
+active_devs 6
+min_moral 49
+delivered_cards 17
+throughput R$ 100.000
+kaizens marketing 1, rest-space 1, train-dev 2, wip-increase 1
+```
+
+Medias atuais:
+
+```text
+budget R$ 2.283,57
+accumulated_profit R$ -4.026,49
+reputation 27,40
+active_clients 1,11
+active_devs 6,03
+min_moral 33,76
+delivered_cards 6,73
+throughput R$ 22.842
+```
+
+A conclusao operacional e que o jogo segue dificil, mas nao esta mais sem caminho observado: a simulacao heuristica encontrou sobrevivencias e Master Kaizen mantendo os numeros fixos do PDF. O objetivo nao e garantir vitoria media, e sim permitir que boas decisoes de fluxo, qualidade, contratacao e Kaizen tenham impacto mensuravel.
 
 ## Estrategia recomendada de jogo
 
