@@ -5,7 +5,8 @@ import hashlib
 import hmac
 import json
 import os
-from dataclasses import asdict, is_dataclass
+from collections.abc import AsyncIterator
+from dataclasses import fields, is_dataclass
 from enum import Enum
 from pathlib import Path
 from typing import Annotated
@@ -33,6 +34,7 @@ from app.domain.engine import (
     process_sprint,
     top_kaizens,
 )
+from app.domain.models import GameState
 from app.persistence import GameRepository
 
 SECRET = os.getenv("SESSION_SECRET", "dev-secret-change-me")
@@ -114,7 +116,7 @@ async def game_events(
 ) -> StreamingResponse:
     require_session(game_id, ekaizen_session)
 
-    async def stream() -> object:
+    async def stream() -> AsyncIterator[str]:
         for _ in range(5):
             game = repo.get(game_id)
             if game is not None:
@@ -126,9 +128,7 @@ async def game_events(
 
 
 @app.get("/games/{game_id}/hall-of-kaizen")
-def hall_of_kaizen(
-    game_id: str, ekaizen_session: Annotated[str | None, Cookie()] = None
-) -> object:
+def hall_of_kaizen(game_id: str, ekaizen_session: Annotated[str | None, Cookie()] = None) -> object:
     require_session(game_id, ekaizen_session)
     game = repo.get(game_id)
     if game is None:
@@ -156,11 +156,12 @@ def hall_of_kaizen(
     }
 
 
-def best_sprint(game: object) -> dict[str, int | float]:
-    if not hasattr(game, "metrics_history"):
-        return {"sprint": 0, "throughput_value": 0, "oee": 0.0}
-    typed_game = game
-    metrics = max(typed_game.metrics_history, key=lambda item: (item.throughput_value, item.oee), default=None)
+def best_sprint(game: GameState) -> dict[str, int | float]:
+    metrics = max(
+        game.metrics_history,
+        key=lambda item: (item.throughput_value, item.oee),
+        default=None,
+    )
     if metrics is None:
         return {"sprint": 0, "throughput_value": 0, "oee": 0.0}
     return {
@@ -185,11 +186,10 @@ def require_session(game_id: str, cookie: str | None) -> None:
 def encode_game(value: object) -> object:
     if isinstance(value, Enum):
         return value.value
-    if is_dataclass(value):
-        return {key: encode_game(item) for key, item in asdict(value).items()}
+    if is_dataclass(value) and not isinstance(value, type):
+        return {field.name: encode_game(getattr(value, field.name)) for field in fields(value)}
     if isinstance(value, list):
         return [encode_game(item) for item in value]
     if isinstance(value, dict):
         return {str(key): encode_game(item) for key, item in value.items()}
     return value
-

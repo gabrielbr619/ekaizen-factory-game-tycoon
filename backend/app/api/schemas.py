@@ -51,4 +51,3 @@ CommandPayload = Annotated[
 class CommandRequest(BaseModel):
     command_id: str
     payload: CommandPayload
-

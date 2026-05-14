@@ -40,6 +40,7 @@ class GameRepository:
                 (game.id, payload),
             )
 
+
     def get(self, game_id: str) -> GameState | None:
         with self._connect() as conn:
             row = conn.execute("SELECT state FROM games WHERE id = ?", (game_id,)).fetchone()
@@ -83,4 +84,3 @@ class GameRepository:
                 "INSERT OR REPLACE INTO games (id, state) VALUES (?, ?)",
                 (game.id, payload),
             )
-
