@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type DragEvent, type ReactNode } from 'react'
 import {
   Activity,
   AlertTriangle,
@@ -76,11 +76,7 @@ export function App({ api }: AppProps) {
           setGame(state)
           setSelectedCardId(state.cards.find((card) => card.column !== 'done')?.id ?? null)
           setSelectedDevId(state.developers.find((dev) => dev.active)?.id ?? null)
-          setNotice(
-            state.id.startsWith('mock-')
-              ? 'Mock temporario ativo: backend indisponivel; a UI esta pronta para trocar pela API real.'
-              : 'Partida carregada. O backend e a fonte autoritativa; a UI envia comandos.',
-          )
+          setNotice(state.id.startsWith('mock-') ? 'Mock temporario ativo: backend indisponivel.' : '')
         }
       })
       .catch((error: Error) => {
@@ -171,7 +167,16 @@ export function App({ api }: AppProps) {
 
   return (
     <main className="factory-app">
-      <TopBar game={game} clientReputation={clientReputation} busy={busy} onRestart={startFreshGame} />
+      <TopBar
+        game={game}
+        clientReputation={clientReputation}
+        busy={busy}
+        confirmSprint={confirmSprint}
+        onCancelSprint={() => setConfirmSprint(false)}
+        onConfirmSprint={() => sendCommand({ type: 'process-sprint' }, 'Sprint processada.')}
+        onRequestSprint={() => setConfirmSprint(true)}
+        onRestart={startFreshGame}
+      />
 
       <section className="andon-strip" aria-label="Andon">
         <div className="andon-title">
@@ -210,6 +215,12 @@ export function App({ api }: AppProps) {
         </button>
       </nav>
 
+      {notice.length > 0 ? (
+        <section className="status-strip" aria-label="Status">
+          <strong>{notice}</strong>
+        </section>
+      ) : null}
+
       {viewMode === 'ops' ? (
         <div className="ops-grid">
           <section className="left-rail">
@@ -234,10 +245,12 @@ export function App({ api }: AppProps) {
               selectedCard={selectedCard}
               selectedDevId={selectedDevId}
               onSelectDev={setSelectedDevId}
-              onAllocate={(dev) =>
+              onAllocate={(dev, cardId) =>
                 sendCommand(
-                  { type: 'allocate-dev', dev_id: dev.id, card_id: selectedCard?.id ?? null },
-                  `${dev.name} alocado conforme comando do backend.`,
+                  { type: 'allocate-dev', dev_id: dev.id, card_id: cardId },
+                  cardId === null
+                    ? `${dev.name} removido do card conforme comando do backend.`
+                    : `${dev.name} alocado conforme comando do backend.`,
                 )
               }
             />
@@ -260,29 +273,6 @@ export function App({ api }: AppProps) {
       )}
 
       {showOnboarding ? <OnboardingPanel sprint={game.sprint} onDismiss={() => setShowOnboarding(false)} /> : null}
-
-      <footer className="command-bar">
-        <div>
-          <strong>{notice}</strong>
-          <span>Comandos usam `POST /games/{'{game_id}'}/commands` com idempotencia.</span>
-        </div>
-        {confirmSprint ? (
-          <div className="confirm-actions">
-            <span>Encerrar a sprint processa custos, progresso, bugs e eventos no backend.</span>
-            <button disabled={busy} onClick={() => sendCommand({ type: 'process-sprint' }, 'Sprint processada.')} title="Confirmar processamento irreversivel da sprint no backend" type="button">
-              Confirmar sprint
-            </button>
-            <button disabled={busy} onClick={() => setConfirmSprint(false)} title="Cancelar a confirmacao e continuar jogando a sprint atual" type="button">
-              Cancelar
-            </button>
-          </div>
-        ) : (
-          <button className="primary-action" disabled={busy} onClick={() => setConfirmSprint(true)} title="Abrir confirmacao antes de encerrar a sprint" type="button">
-            <Play aria-hidden="true" />
-            Encerrar sprint
-          </button>
-        )}
-      </footer>
     </main>
   )
 }
@@ -367,10 +357,23 @@ type TopBarProps = {
   game: GameState
   clientReputation: number
   busy: boolean
+  confirmSprint: boolean
+  onCancelSprint(): void
+  onConfirmSprint(): void
+  onRequestSprint(): void
   onRestart(): void
 }
 
-function TopBar({ game, clientReputation, busy, onRestart }: TopBarProps) {
+function TopBar({
+  game,
+  clientReputation,
+  busy,
+  confirmSprint,
+  onCancelSprint,
+  onConfirmSprint,
+  onRequestSprint,
+  onRestart,
+}: TopBarProps) {
   return (
     <header className="top-bar">
       <div className="brand-block">
@@ -387,10 +390,27 @@ function TopBar({ game, clientReputation, busy, onRestart }: TopBarProps) {
         <Kpi label="Devs ativos" value={`${game.developers.filter((dev) => dev.active).length}`} />
         <Kpi label="Kaizen" value={`${game.kaizen_points} pts`} tone={game.kaizen_points > 0 ? 'good' : 'neutral'} />
       </div>
-      <button className="icon-button" disabled={busy} onClick={onRestart} title="Iniciar nova partida" type="button">
-        <RotateCcw aria-hidden="true" />
-        Nova
-      </button>
+      <div className="top-actions">
+        {confirmSprint ? (
+          <div className="confirm-actions">
+            <button disabled={busy} onClick={onConfirmSprint} title="Confirmar processamento da sprint no backend" type="button">
+              Confirmar
+            </button>
+            <button disabled={busy} onClick={onCancelSprint} title="Cancelar e continuar jogando a sprint atual" type="button">
+              Cancelar
+            </button>
+          </div>
+        ) : (
+          <button className="primary-action" disabled={busy} onClick={onRequestSprint} title="Encerrar sprint e processar custos, progresso, bugs e eventos" type="button">
+            <Play aria-hidden="true" />
+            Encerrar sprint
+          </button>
+        )}
+        <button className="icon-button" disabled={busy} onClick={onRestart} title="Iniciar nova partida" type="button">
+          <RotateCcw aria-hidden="true" />
+          Nova
+        </button>
+      </div>
     </header>
   )
 }
@@ -457,6 +477,32 @@ type KanbanProps = {
 }
 
 function KanbanBoard({ game, selectedCardId, onSelectCard, onMoveCard }: KanbanProps) {
+  const [draggingCardId, setDraggingCardId] = useState<string | null>(null)
+  const [dropTargetColumn, setDropTargetColumn] = useState<Column | null>(null)
+
+  const draggingCard = useMemo(
+    () => game.cards.find((card) => card.id === draggingCardId) ?? null,
+    [draggingCardId, game.cards],
+  )
+
+  function clearDragState() {
+    setDraggingCardId(null)
+    setDropTargetColumn(null)
+  }
+
+  function handleDrop(event: DragEvent<HTMLElement>, target: Column) {
+    event.preventDefault()
+    const draggedId = draggingCardId ?? event.dataTransfer.getData('text/plain')
+    const card = game.cards.find((item) => item.id === draggedId)
+    setDropTargetColumn(null)
+    if (card === undefined || nextColumn(card.column) !== target) {
+      clearDragState()
+      return
+    }
+    onMoveCard(card, target)
+    clearDragState()
+  }
+
   return (
     <section className="kanban-area" aria-label="Kanban">
       <div className="section-heading">
@@ -467,8 +513,27 @@ function KanbanBoard({ game, selectedCardId, onSelectCard, onMoveCard }: KanbanP
         {columns.map((column) => {
           const cards = game.cards.filter((card) => card.column === column)
           const limit = game.wip_limits[column] ?? 0
+          const acceptsDraggingCard = draggingCard !== null && nextColumn(draggingCard.column) === column
+          const isDropTarget = dropTargetColumn === column
           return (
-            <section className="kanban-column" key={column} aria-label={columnLabel(column)}>
+            <section
+              className={`kanban-column ${isDropTarget ? (acceptsDraggingCard ? 'drop-valid' : 'drop-invalid') : ''}`}
+              key={column}
+              aria-label={columnLabel(column)}
+              onDragEnter={(event) => {
+                event.preventDefault()
+                setDropTargetColumn(column)
+              }}
+              onDragOver={(event) => {
+                event.preventDefault()
+                event.dataTransfer.dropEffect = acceptsDraggingCard ? 'move' : 'none'
+              }}
+              onDragLeave={(event) => {
+                event.preventDefault()
+                setDropTargetColumn(null)
+              }}
+              onDrop={(event) => handleDrop(event, column)}
+            >
               <header>
                 <div>
                   <strong>{columnLabel(column)}</strong>
@@ -485,7 +550,14 @@ function KanbanBoard({ game, selectedCardId, onSelectCard, onMoveCard }: KanbanP
                     game={game}
                     key={card.id}
                     selected={card.id === selectedCardId}
+                    dragging={card.id === draggingCardId}
                     onSelect={() => onSelectCard(card.id)}
+                    onDragStart={(event) => {
+                      event.dataTransfer.effectAllowed = 'move'
+                      event.dataTransfer.setData('text/plain', card.id)
+                      setDraggingCardId(card.id)
+                    }}
+                    onDragEnd={clearDragState}
                     onMove={() => {
                       const target = nextColumn(card.column)
                       if (target !== null) onMoveCard(card, target)
@@ -505,11 +577,14 @@ type WorkCardProps = {
   card: Card
   game: GameState
   selected: boolean
+  dragging: boolean
   onSelect(): void
+  onDragStart(event: DragEvent<HTMLElement>): void
+  onDragEnd(): void
   onMove(): void
 }
 
-function WorkCard({ card, game, selected, onSelect, onMove }: WorkCardProps) {
+function WorkCard({ card, game, selected, dragging, onSelect, onDragStart, onDragEnd, onMove }: WorkCardProps) {
   const client = game.clients.find((item) => item.id === card.client_id)
   const assigned = card.assigned_dev_ids
     .map((id) => game.developers.find((dev) => dev.id === id)?.name)
@@ -517,11 +592,18 @@ function WorkCard({ card, game, selected, onSelect, onMove }: WorkCardProps) {
   const progress = `${card.progress}/${card.points_total}`
   const canMove = nextColumn(card.column) !== null
   return (
-    <article className={`work-card ${selected ? 'selected' : ''} ${card.blocked_by_jidoka ? 'jidoka' : ''}`}>
+    <article
+      aria-label={`Card ${card.title}`}
+      className={`work-card ${selected ? 'selected' : ''} ${dragging ? 'dragging' : ''} ${card.blocked_by_jidoka ? 'jidoka' : ''}`}
+      draggable={canMove}
+      onDragEnd={onDragEnd}
+      onDragStart={onDragStart}
+    >
       <button
         className="card-select"
+        aria-label={`Selecionar card ${card.title}`}
         onClick={onSelect}
-        title={`Card ${card.title}. Requisitos: ${card.required_specialties.join(', ')}. Valor ${currencyFormatter.format(card.value)}. Prazo sprint ${card.deadline_sprint}. Progresso ${progress}.`}
+        title={`Selecionar ${card.title}. Arraste para a proxima coluna ou use Mover. Requisitos: ${card.required_specialties.join(', ')}. Valor ${currencyFormatter.format(card.value)}. Prazo sprint ${card.deadline_sprint}. Progresso ${progress}.`}
         type="button"
       >
         <span className="card-type">{card.card_type}</span>
@@ -551,7 +633,7 @@ type DevelopersPanelProps = {
   selectedCard: Card | null
   selectedDevId: string | null
   onSelectDev(devId: string): void
-  onAllocate(dev: Developer): void
+  onAllocate(dev: Developer, cardId: string | null): void
 }
 
 function DevelopersPanel({ developers, selectedCard, selectedDevId, onSelectDev, onAllocate }: DevelopersPanelProps) {
@@ -559,35 +641,44 @@ function DevelopersPanel({ developers, selectedCard, selectedDevId, onSelectDev,
     <section className="panel" aria-label="Devs">
       <PanelTitle icon={<Users aria-hidden="true" />} title="Gemba dos devs" />
       <div className="dev-list">
-        {developers.map((dev) => (
-          <article className={`dev-row ${selectedDevId === dev.id ? 'selected' : ''}`} key={dev.id}>
-            <button
-              onClick={() => onSelectDev(dev.id)}
-              title={`${dev.name}. ${dev.specialty}, ${dev.level}. Moral ${dev.moral}. Salario ${currencyFormatter.format(dev.salary)}. Entregas ${dev.cards_delivered}. Bugs ${dev.bugs_generated}. Tempo de casa ${dev.tenure_sprints} sprints.`}
-              type="button"
-            >
-              <span className={`avatar spec-${dev.specialty}`}>{dev.avatar}</span>
-              <span>
-                <strong>{dev.name}</strong>
-                <small>{dev.specialty} · {dev.level}</small>
-              </span>
-              <span className={`morale ${dev.moral < 30 ? 'low' : ''}`}>{dev.moral}</span>
-            </button>
-            <button
-              className="tiny-action"
-              disabled={selectedCard === null || selectedCard.column === 'backlog' || selectedCard.column === 'done' || !dev.active}
-              onClick={() => onAllocate(dev)}
-              title={
-                selectedCard === null
-                  ? 'Selecione um card antes de alocar'
-                  : `Alocar ${dev.name} no card ${selectedCard.title}`
-              }
-              type="button"
-            >
-              Alocar
-            </button>
-          </article>
-        ))}
+        {developers.map((dev) => {
+          const assignedToSelectedCard = selectedCard?.assigned_dev_ids.includes(dev.id) ?? false
+          const selectedCardAcceptsAllocation =
+            selectedCard !== null && selectedCard.column !== 'backlog' && selectedCard.column !== 'done'
+          const actionDisabled = !dev.active || (!assignedToSelectedCard && !selectedCardAcceptsAllocation)
+          const actionLabel = assignedToSelectedCard ? 'Remover' : 'Alocar'
+          const targetCardId = assignedToSelectedCard ? null : selectedCard?.id ?? null
+
+          return (
+            <article className={`dev-row ${selectedDevId === dev.id ? 'selected' : ''}`} key={dev.id}>
+              <button
+                className="dev-select"
+                onClick={() => onSelectDev(dev.id)}
+                title={`${dev.name}. ${specialtyLabel(dev.specialty)}, ${levelLabel(dev.level)}. Moral ${dev.moral}. Salario ${currencyFormatter.format(dev.salary)}. Entregas ${dev.cards_delivered}. Bugs ${dev.bugs_generated}. Tempo de casa ${dev.tenure_sprints} sprints.`}
+                type="button"
+              >
+                <span className={`avatar spec-${dev.specialty}`}>{specialtyBadge(dev.specialty)}</span>
+                <span className="dev-identity">
+                  <strong>{dev.name}</strong>
+                  <small>{levelLabel(dev.level)} · {specialtyLabel(dev.specialty)}</small>
+                </span>
+                <span className={`morale ${dev.moral < 30 ? 'low' : ''}`} title={`Moral ${dev.moral}`}>
+                  {dev.moral}
+                </span>
+              </button>
+              <button
+                aria-label={`${actionLabel} ${dev.name}`}
+                className={`tiny-action ${assignedToSelectedCard ? 'remove-action' : ''}`}
+                disabled={actionDisabled}
+                onClick={() => onAllocate(dev, targetCardId)}
+                title={allocationTitle(dev, selectedCard, assignedToSelectedCard)}
+                type="button"
+              >
+                {actionLabel}
+              </button>
+            </article>
+          )
+        })}
       </div>
     </section>
   )
@@ -843,6 +934,44 @@ function kaizenLabel(kaizen: KaizenType): string {
   if (kaizen === 'marketing') return 'Marketing'
   if (kaizen === 'devops-culture') return 'Cultura DevOps'
   return 'Heijunka'
+}
+
+function specialtyBadge(specialty: string): string {
+  if (specialty === 'backend') return 'BE'
+  if (specialty === 'frontend') return 'FE'
+  if (specialty === 'qa') return 'QA'
+  if (specialty === 'po') return 'PO'
+  if (specialty === 'devops') return 'DO'
+  if (specialty === 'fullstack') return 'FS'
+  return specialty.slice(0, 2).toUpperCase()
+}
+
+function specialtyLabel(specialty: string): string {
+  if (specialty === 'backend') return 'Backend'
+  if (specialty === 'frontend') return 'Frontend'
+  if (specialty === 'qa') return 'QA'
+  if (specialty === 'po') return 'Produto'
+  if (specialty === 'devops') return 'DevOps'
+  if (specialty === 'fullstack') return 'Fullstack'
+  return specialty
+}
+
+function levelLabel(level: string): string {
+  if (level === 'junior') return 'Junior'
+  if (level === 'pleno') return 'Pleno'
+  if (level === 'senior') return 'Senior'
+  if (level === 'god-tier') return 'God-tier'
+  return level
+}
+
+function allocationTitle(dev: Developer, selectedCard: Card | null, assignedToSelectedCard: boolean): string {
+  if (!dev.active) return `${dev.name} esta inativo.`
+  if (assignedToSelectedCard) return `Remover ${dev.name} do card selecionado. O backend desaloca com card_id nulo.`
+  if (selectedCard === null) return 'Selecione um card antes de alocar.'
+  if (selectedCard.column === 'backlog' || selectedCard.column === 'done') {
+    return 'Backend so permite alocar em Analise, Dev ou QA.'
+  }
+  return `Alocar ${dev.name} no card ${selectedCard.title}. O backend valida especialidade e regras ativas.`
 }
 
 function kaizenTarget(kaizen: KaizenType, selectedDev: Developer | null, selectedCard: Card | null): string | null {

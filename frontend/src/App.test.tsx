@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { App } from './App'
@@ -13,6 +13,20 @@ function createTestApi(state = createMockState()): GameApi {
     startGame: vi.fn(async (): Promise<GameState> => currentState),
     sendCommand: vi.fn(async (_gameId: string, _payload: CommandPayload): Promise<GameState> => currentState),
     loadHallOfKaizen: vi.fn(async (): Promise<HallOfKaizen> => hall),
+  }
+}
+
+function createDataTransfer() {
+  const values = new Map<string, string>()
+  return {
+    dropEffect: 'none',
+    effectAllowed: 'all',
+    getData(format: string): string {
+      return values.get(format) ?? ''
+    },
+    setData(format: string, data: string): void {
+      values.set(format, data)
+    },
   }
 }
 
@@ -74,5 +88,61 @@ describe('Factory game UI', () => {
     expect(within(hall).getByRole('heading', { name: 'Hall of Kaizen' })).toBeInTheDocument()
     expect(within(hall).getByText('Zero Bug Sprint')).toBeInTheDocument()
     expect(within(hall).getByText('Dev MVP')).toBeInTheDocument()
+  })
+
+  it('sends move-card when a card is dropped on the next Kanban column', async () => {
+    const api = createTestApi()
+    render(<App api={api} />)
+
+    const kanban = await screen.findByRole('region', { name: 'Kanban' })
+    const card = within(kanban).getByRole('article', { name: 'Card Dashboard OEE' })
+    const analysisColumn = within(kanban).getByRole('region', { name: 'Analise' })
+    const dataTransfer = createDataTransfer()
+
+    fireEvent.dragStart(card, { dataTransfer })
+    fireEvent.dragEnter(analysisColumn, { dataTransfer })
+    fireEvent.drop(analysisColumn, { dataTransfer })
+
+    await waitFor(() => {
+      expect(api.sendCommand).toHaveBeenCalledWith('mock-4242', {
+        type: 'move-card',
+        card_id: 'card-1-1',
+        target: 'analysis',
+      })
+    })
+  })
+
+  it('does not send move-card when a card is dropped on an invalid column', async () => {
+    const api = createTestApi()
+    render(<App api={api} />)
+
+    const kanban = await screen.findByRole('region', { name: 'Kanban' })
+    const card = within(kanban).getByRole('article', { name: 'Card Dashboard OEE' })
+    const devColumn = within(kanban).getByRole('region', { name: 'Dev' })
+    const dataTransfer = createDataTransfer()
+
+    fireEvent.dragStart(card, { dataTransfer })
+    fireEvent.dragEnter(devColumn, { dataTransfer })
+    fireEvent.drop(devColumn, { dataTransfer })
+
+    expect(api.sendCommand).not.toHaveBeenCalled()
+  })
+
+  it('lets the player remove a developer already allocated to the selected card', async () => {
+    const user = userEvent.setup()
+    const api = createTestApi()
+    render(<App api={api} />)
+
+    await screen.findByRole('heading', { name: 'Kanban operacional' })
+    await user.click(screen.getByRole('button', { name: /Selecionar card Pipeline de deploy/i }))
+
+    const devPanel = screen.getByRole('region', { name: 'Devs' })
+    await user.click(within(devPanel).getByRole('button', { name: 'Remover Lia Backend' }))
+
+    expect(api.sendCommand).toHaveBeenCalledWith('mock-4242', {
+      type: 'allocate-dev',
+      dev_id: 'd1',
+      card_id: null,
+    })
   })
 })

@@ -7,14 +7,14 @@ test('plays a complete factory management flow', async ({ page }) => {
   await expect(page.getByRole('dialog', { name: 'Tutorial inicial' })).toBeVisible()
   await page.getByRole('button', { name: 'Começar partida' }).click()
   await expect(page.getByLabel('Kanban')).toContainText('Backlog')
-  await expect(page.getByText('backend e a fonte autoritativa')).toBeVisible()
+  await expect(page.getByRole('button', { name: /Encerrar sprint/ })).toBeVisible()
 
   for (let sprint = 0; sprint < 5; sprint += 1) {
     await page.getByRole('button', { name: /Encerrar sprint/ }).click()
     const commandResponse = page.waitForResponse((response) =>
       response.request().method() === 'POST' && response.url().includes('/commands'),
     )
-    await page.getByRole('button', { name: /Confirmar sprint/ }).click()
+    await page.getByRole('button', { name: 'Confirmar' }).click()
     expect((await commandResponse).ok()).toBe(true)
   }
 
