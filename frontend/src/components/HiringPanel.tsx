@@ -37,7 +37,7 @@ export function HiringPanel({ game, onHire }: HiringPanelProps) {
               type="button"
             >
               {currencyFormatter.format(candidate.salary)}
-              <Tooltip id={`candidate-hire-detail-${candidate.id}`} text={`Contratar ${candidate.name}. Custo de admissao: ${currencyFormatter.format(candidate.salary)}. Onboarding e processado no backend.`} />
+              <Tooltip id={`candidate-hire-detail-${candidate.id}`} text={`Contratar ${candidate.name}. Onboarding sera processado pelo backend.`} />
             </button>
           </article>
         ))}
