@@ -8,7 +8,7 @@ O backend FastAPI e a fonte autoritativa do estado e das regras. O frontend Vite
 
 Este repositorio contem uma versao integrada e jogavel do desafio. O backend FastAPI persiste partidas em SQLite, expoe os endpoints principais, processa as regras de dominio e e a fonte autoritativa do estado. O frontend Vite/React consome a API real, renderiza o jogo como primeira tela e envia comandos para o backend.
 
-URL publica do deploy: pendente de validacao final antes da entrega.
+URL publica do deploy: nao declarada neste README ate validacao final em ambiente publico. O PDF exige uma URL publica funcional no envio; este repositorio nao deve prometer uma URL sem healthcheck, criacao de partida e fluxo basico validados na propria URL.
 
 Repositorio publico: https://github.com/gabrielbr619/ekaizen-factory-game-tycoon
 
@@ -73,11 +73,13 @@ O contrato atual do backend cobre:
 
 Mutações passam por `POST /games/{game_id}/commands` com `command_id` no corpo e aceitam `Idempotency-Key` no header. O backend usa cookie de sessao assinado para proteger o acesso a uma partida criada.
 
+O endpoint de eventos usa Server-Sent Events como canal minimo de tempo real. Ele existe para notificacoes e atualizacoes observaveis da partida; nao substitui o contrato de comandos idempotentes.
+
 ## Roteiro de jogo previsto
 
 1. Criar uma nova partida.
 2. Avaliar budget, sprint, reputacao, clientes, devs e alertas Andon.
-3. Puxar cards pelo Kanban respeitando o fluxo Backlog -> Analise -> Desenvolvimento -> QA -> Done.
+3. Puxar cards pelo Kanban respeitando o fluxo Backlog -> Analise -> Desenvolvimento -> QA; a ida para Done acontece no fechamento da sprint, depois da checagem de QA.
 4. Alocar devs conforme especialidade, nivel, moral e risco de bug.
 5. Confirmar o fim do sprint para o backend processar progresso, custos, receita, bugs, moral, eventos e metricas.
 6. A cada 5 sprints, aplicar Kaizens permanentes pelo ciclo PDCA.
@@ -86,18 +88,22 @@ Mutações passam por `POST /games/{game_id}/commands` com `command_id` no corpo
 
 ## Decisoes tecnicas e tradeoffs
 
-- **SQLite com snapshot serializado**: reduz risco operacional e permite persistir o estado completo rapidamente. O tradeoff e que o modelo relacional ainda nao esta normalizado; a evolucao natural seria separar partidas, cards, devs, clientes, eventos e comandos em tabelas dedicadas.
-- **Backend autoritativo**: regras e calculos devem ficar no FastAPI/dominio. O frontend pode formatar valores e renderizar agrupamentos, mas nao deve calcular resultado de jogo.
-- **Nginx no frontend Docker**: o container do frontend serve os arquivos estaticos e faz proxy de `/healthz` e `/games` para o backend, permitindo abrir o jogo em `http://localhost`.
-- **SSE como tempo real minimo**: o endpoint `/games/{game_id}/events` existe para o canal de comunicacao em tempo real exigido pelo desafio.
-- **Estado de UI local com React state**: a interface usa estado local de tela porque o fluxo e single-player, baseado em comandos e sem compartilhamento complexo entre rotas. A evolucao natural seria Zustand caso o jogo ganhe multiplas telas independentes ou cache de sessoes.
-- **CI com comandos reais**: o workflow roda ruff, mypy, pytest, typecheck, testes frontend, E2E Playwright, build frontend e build Docker. Se alguma frente ainda estiver incompleta, a falha deve aparecer no pipeline em vez de ser escondida.
+- **SQLite com snapshot serializado**: o PDF exige persistencia em banco relacional e persistencia do estado completo apos cada sprint; SQLite atende o requisito relacional e o snapshot preserva determinismo com baixo risco operacional. O tradeoff e nao normalizar `cards`, `devs`, `clientes`, `eventos` e `metricas` em tabelas proprias nesta versao. Isso nao fere o PDF porque o requisito e persistir em banco relacional, nao impor um modelo normalizado.
+- **Tabela de comandos para idempotencia**: comandos mutantes usam identificador unico e/ou `Idempotency-Key` para evitar reprocessar retries. O tradeoff e guardar a resposta idempotente em vez de montar uma fila/event store completa. Isso atende o PDF porque retentativas devem produzir o mesmo resultado, nao necessariamente exigir event sourcing.
+- **Backend autoritativo**: regras, RNG, WIP, processamento de sprint, bugs, OEE, vitoria/derrota e pagamentos ficam no backend. O frontend formata valores, agrupa cards por coluna e gerencia estado de tela. Isso e requisito direto do PDF, nao tradeoff.
+- **QA -> Done no fechamento da sprint**: o jogador move cards ate QA; a passagem para Done acontece durante `process-sprint`, depois da checagem de qualidade. O tradeoff e nao permitir um comando manual "aprovar QA" separado. Isso preserva o PDF porque QA roda no fim do sprint e bug detectado retorna para Dev sem penalidade.
+- **SSE como canal de tempo real**: `/games/{game_id}/events` cobre o requisito de WebSocket ou Server-Sent Events. O tradeoff e usar fluxo unidirecional servidor -> cliente, suficiente para alertas/atualizacoes, enquanto comandos continuam por HTTP idempotente.
+- **Estado de UI local com React state**: a interface usa estado local de tela porque o jogo e single-player, baseado em comandos e sem multiplas rotas complexas. O tradeoff e nao introduzir store global mais pesada para esta versao. Isso nao fere o PDF porque ele exige gerenciamento coerente de estado, nao uma biblioteca especifica.
+- **Balanceamento documentado**: regras numericas explicitas do PDF foram preservadas. Parametros abertos, como receita recorrente por cliente ativo, ganho de reputacao por entrega limpa e rampa de demanda por estagio, estao justificados em `docs/BALANCING.md`.
+- **Nginx no frontend Docker**: o container do frontend serve os arquivos estaticos e faz proxy de `/healthz` e `/games` para o backend, permitindo abrir o jogo em `http://localhost` com `docker compose up`.
+- **CI com comandos reais**: o workflow roda ruff, mypy, pytest, typecheck, testes frontend, E2E Playwright, build frontend e build Docker. Se alguma frente estiver incompleta, a falha deve aparecer no pipeline em vez de ser escondida.
 
 ## Fora de escopo ou pendente
 
-- O deploy publico atual usa um tunnel Cloudflare para expor a versao integrada localmente. Para producao real, a evolucao recomendada e publicar frontend e backend em infraestrutura persistente.
-- A persistencia SQLite e relacional no arquivo de banco, mas o estado de jogo ainda e salvo como snapshot.
-- Algumas regras avancadas do PDF foram simplificadas para priorizar fluxo jogavel, determinismo e separacao backend/frontend dentro do prazo.
+- **URL publica validada**: o PDF exige URL publica funcional no envio. Este README nao declara uma URL ate que ela seja validada com healthcheck, criacao de partida e fluxo basico online.
+- **Modelo relacional normalizado**: a persistencia usa SQLite relacional com snapshot de estado e comandos idempotentes. A evolucao natural e normalizar partidas, cards, devs, clientes, eventos e comandos para consultas analiticas mais ricas.
+- **Respostas dedicadas para todos os eventos aleatorios**: eventos de mercado/clientes aparecem via Andon e afetam o contexto de decisao. A evolucao natural e criar comandos de mitigacao especificos para cada evento, como negociacao de aumento, resposta a auditoria ou decisao formal sobre cliente urgente.
+- **Drag and drop completo**: comandos por botoes acessiveis sao aceitaveis quando o fluxo e claro e enviado ao servidor. A evolucao natural e adicionar drag and drop preservando os mesmos comandos backend.
 
 ## Como rodar verificacoes locais
 
@@ -129,9 +135,11 @@ docker compose config
 docker compose build
 ```
 
-## Deploy publico
+## Entrega publica
 
-Opcao simples sugerida para a entrega:
+O PDF exige que o envio final inclua uma URL publica funcional. Como este documento nao valida deploy, a URL deve ser preenchida somente apos verificacao real.
+
+Opcoes simples para a entrega:
 
 - Frontend: Vercel, Netlify ou container estatico equivalente.
 - Backend: Render, Railway, Fly.io ou VPS com Docker Compose.

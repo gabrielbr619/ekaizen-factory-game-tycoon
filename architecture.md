@@ -39,7 +39,7 @@ Infra:
 - Dockerfile frontend
 - docker-compose.yml
 - CI com lint, typecheck e testes
-- Deploy publico simples
+- Deploy publico simples como gate de entrega, sem automacao de deploy neste documento
 
 ## Camadas
 
@@ -80,7 +80,7 @@ Contem:
 - Conversao de excecoes de dominio para HTTP.
 - Sessao minima.
 - Idempotencia.
-- SSE/WebSocket.
+- SSE em `/games/{game_id}/events`.
 
 Nao contem:
 
@@ -98,6 +98,7 @@ Contem:
 - Salvamento e carregamento de partidas.
 - Registro de comandos idempotentes.
 - Inicializacao de tabelas.
+- Persistencia do estado completo apos cada sprint processado.
 
 Nao contem:
 
@@ -216,11 +217,42 @@ Idempotencia:
 
 - Se `command_id` ou `Idempotency-Key` repetir, retornar exatamente o mesmo estado salvo.
 - Nao reprocessar sprint em retry.
+- Persistir a resposta associada ao comando para que retry de rede seja seguro.
 
 Sessao:
 
 - Cookie assinado simples e suficiente para desafio.
 - Nao implementar login completo.
+
+Tempo real:
+
+- O canal escolhido e Server-Sent Events em `GET /games/{game_id}/events`.
+- SSE e usado para observabilidade de eventos/atualizacoes do jogo.
+- Mutacoes continuam em HTTP por `POST /games/{game_id}/commands`, mantendo idempotencia e backend autoritativo.
+
+## Fluxo autoritativo de sprint
+
+O backend e a unica fonte de verdade para estado, RNG, calculos e decisao de resultado.
+
+Fluxo esperado:
+
+1. Frontend envia comandos de preparacao: mover card, alocar dev, contratar, aplicar Kaizen ou encerrar sprint.
+2. API valida sessao, payload e idempotencia.
+3. Dominio aplica a regra de comando no `GameState`.
+4. Ao processar sprint, o dominio calcula progresso, custos, receitas, moral, eventos, bugs, metricas e condicoes finais.
+5. Cards em QA passam pela checagem de qualidade no fechamento da sprint.
+6. Card aprovado em QA vai para Done e gera pagamento.
+7. Bug detectado em QA volta para Desenvolvimento sem penalidade ao cliente.
+8. Bug nao detectado pode emergir 1 a 3 sprints depois como bug em producao, aplicar penalidade e voltar ao Backlog como BUG.
+9. Estado completo e resposta idempotente sao persistidos.
+10. API devolve o novo estado e SSE pode expor o evento para a UI.
+
+Consequencias arquiteturais:
+
+- Nao existe comando frontend confiavel para mover Desenvolvimento direto para Done.
+- Nao existe calculo de resultado no cliente.
+- WIP e fluxo sequencial sao bloqueados no dominio, mesmo que a UI tente uma acao invalida.
+- Eventos sao parte do estado de jogo, nao apenas mensagens cosmeticas.
 
 ## Frontend UX
 
@@ -332,11 +364,14 @@ Nao fazer um commit unico gigante se houver tempo.
 
 Aceitos se documentados:
 
-- Snapshot relacional em SQLite em vez de schema altamente normalizado.
-- Eventos aleatorios simplificados, desde que existam e afetem o jogo.
-- God-tier simplificado.
+- Snapshot em SQLite relacional em vez de schema altamente normalizado para cada entidade do jogo.
+- Tabela de comandos idempotentes em vez de event sourcing completo.
+- SSE em vez de WebSocket bidirecional, porque os comandos continuam por HTTP idempotente.
+- QA resolvido no fechamento da sprint em vez de um comando manual separado de aprovacao.
+- Eventos aleatorios com respostas agregadas por Andon/decisao de sprint, desde que afetem o jogo e nao sejam cosmeticos.
+- God-tier implementado como raridade e alto impacto dentro do sistema de devs, mesmo que futuras versoes ampliem regras especificas de retencao.
 - Drag and drop substituido por botoes acessiveis de mover, se o fluxo for claro.
-- Deploy com SQLite efemero, se README declarar limitacao.
+- Deploy com SQLite em volume persistente para o desafio; SQLite efemero so e aceitavel em ambiente local/teste, nao como promessa de entrega publica.
 
 Nao aceitos:
 
@@ -345,13 +380,13 @@ Nao aceitos:
 - 8 conceitos apenas cosmeticos.
 - Engine central gigante sem separacao.
 - Falta de Docker.
-- Falta de URL publica.
+- README prometendo URL publica sem validacao.
+- Automatizar deploy sem tarefa explicita.
 
 ## Mensagem final de envio
 
 A mensagem ao avaliador deve ter no maximo um paragrafo e seguir este modelo:
 
 ```text
-Segue o repositorio e o deploy do desafio. O ponto forte da entrega e a modelagem autoritativa no backend com os conceitos de melhoria continua afetando a jogabilidade e uma UI focada em entendimento rapido. O ponto fraco/tradeoff e que, pelo prazo, algumas regras avancadas foram simplificadas e documentadas no README, priorizando fluxo jogavel, determinismo, testes essenciais, Docker e deploy funcional.
+Segue o repositorio e a URL publica validada do desafio. O ponto forte da entrega e a modelagem autoritativa no backend: Kanban, WIP, Lead/Cycle Time, OEE, PDCA, Andon e Heijunka afetam a jogabilidade, com comandos idempotentes, SSE e testes no pipeline. O principal tradeoff e persistir o estado do jogo como snapshot em SQLite relacional, em vez de normalizar todas as entidades, para preservar determinismo e reduzir risco operacional dentro do prazo sem abrir mao dos requisitos do PDF.
 ```
-
