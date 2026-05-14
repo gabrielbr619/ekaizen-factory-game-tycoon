@@ -24,11 +24,13 @@ test('plays a complete factory management flow', async ({ page }) => {
 
   const backlogCard = page.getByLabel('Backlog').locator('.work-card').first()
   const cardTitle = await backlogCard.locator('strong').textContent()
-  expect(cardTitle).not.toBeNull()
+  if (cardTitle === null) {
+    throw new Error('Expected backlog card title to be rendered.')
+  }
 
   await backlogCard.getByRole('button', { name: /Mover/ }).click()
-  await expect(page.getByLabel('Analise')).toContainText(cardTitle as string)
-  await page.getByLabel('Analise').getByText(cardTitle as string).click()
+  await expect(page.getByLabel('Analise')).toContainText(cardTitle)
+  await page.getByLabel('Analise').getByText(cardTitle).click()
   await expect(page.getByRole('button', { name: /Alocar/ }).first()).toBeEnabled()
   await page.getByRole('button', { name: /Alocar/ }).first().click()
 

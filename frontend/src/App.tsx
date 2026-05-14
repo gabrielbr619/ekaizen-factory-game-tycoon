@@ -538,10 +538,10 @@ function KaizenPanel({ game, selectedDev, selectedCard, onApply }: KaizenPanelPr
         {kaizenTypes.map((kaizen) => (
           <button
             className={game.active_kaizens.includes(kaizen) ? 'active' : ''}
-            disabled={game.kaizen_points <= 0}
+            disabled={game.kaizen_points < kaizenCost(kaizen)}
             key={kaizen}
             onClick={() => onApply(kaizen)}
-            title={`Aplicar ${kaizenLabel(kaizen)}. Alvo atual: ${kaizenTargetLabel(kaizen, selectedDev, selectedCard)}.`}
+            title={`Aplicar ${kaizenLabel(kaizen)}. Custo: ${kaizenCost(kaizen)} ponto(s). Alvo atual: ${kaizenTargetLabel(kaizen, selectedDev, selectedCard)}.`}
             type="button"
           >
             {kaizenLabel(kaizen)}
@@ -742,6 +742,19 @@ function kaizenLabel(kaizen: KaizenType): string {
   if (kaizen === 'marketing') return 'Marketing'
   if (kaizen === 'devops-culture') return 'Cultura DevOps'
   return 'Heijunka'
+}
+
+function kaizenCost(kaizen: KaizenType): number {
+  if (
+    kaizen === 'qa-automation'
+    || kaizen === 'mentoring'
+    || kaizen === 'marketing'
+    || kaizen === 'devops-culture'
+    || kaizen === 'heijunka'
+  ) {
+    return 2
+  }
+  return 1
 }
 
 function kaizenTarget(kaizen: KaizenType, selectedDev: Developer | null, selectedCard: Card | null): string | null {
