@@ -87,6 +87,7 @@ def create_game(seed: int | None = None) -> GameState:
         consecutive_negative_budget_sprints=0,
         heijunka_streak=0,
         badges=[],
+        kaizen_impacts=[],
     )
     game.cards.extend(generate_cards(game, 5))
     game.candidates = generate_candidates(game)

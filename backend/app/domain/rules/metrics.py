@@ -7,22 +7,24 @@ def calculate_heijunka_bonus(game: GameState, delivered: int, value: int) -> int
     recent = [metric.delivered_cards for metric in game.metrics_history[-4:]] + [delivered]
     if KaizenType.HEIJUNKA not in game.active_kaizens or len(recent) < 5:
         return 0
-    average = sum(recent) / len(recent)
-    variance = max(recent) - min(recent)
-    if average > 0 and variance <= 1:
+    if all(item == 3 for item in recent):
         game.heijunka_streak += 1
         return int(value * 0.10)
     game.heijunka_streak = 0
     return 0
 
 
-def calculate_oee(game: GameState, delivered: int, production_bugs: int) -> float:
+def calculate_oee(
+    game: GameState,
+    delivered: int,
+    delivered_on_time: int,
+    production_bugs: int,
+) -> float:
     active_devs = [dev for dev in game.developers if dev.active]
     if not active_devs:
         return 0.0
     availability = sum(1 for dev in active_devs if dev.moral >= 30) / len(active_devs)
-    committed = sum(1 for card in game.cards if card.column in {Column.QA, Column.DONE})
-    performance = 1.0 if committed == 0 else min(1.0, delivered / committed)
+    performance = 1.0 if delivered == 0 else min(1.0, delivered_on_time / delivered)
     quality = 1.0 if delivered == 0 else max(0.0, (delivered - production_bugs) / delivered)
     return round(availability * performance * quality, 3)
 
@@ -39,6 +41,18 @@ def average_lead_time(game: GameState) -> float:
         return 0.0
     total = sum(sum(card.cycle_times.values()) for card in done_cards)
     return round(total / len(done_cards), 2)
+
+
+def average_cycle_time_by_column(game: GameState) -> dict[str, float]:
+    totals: dict[str, list[int]] = {}
+    for card in game.cards:
+        for column, value in card.cycle_times.items():
+            totals.setdefault(column, []).append(value)
+    return {
+        column: round(sum(values) / len(values), 2)
+        for column, values in totals.items()
+        if len(values) > 0
+    }
 
 
 def reputation(game: GameState) -> int:

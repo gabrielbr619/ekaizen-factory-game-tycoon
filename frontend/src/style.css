@@ -204,6 +204,7 @@ svg {
 
 .andon-title,
 .panel-title,
+.panel-title-row,
 .section-heading {
   align-items: center;
   display: flex;
@@ -308,6 +309,45 @@ svg {
 .panel-title {
   font-size: 14px;
   margin-bottom: 8px;
+}
+
+.panel-title-row {
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.panel-title-row .panel-title {
+  margin-bottom: 0;
+}
+
+.panel-title-row button {
+  background: white;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  color: var(--ink);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 800;
+  min-height: 28px;
+  padding: 5px 8px;
+}
+
+.onboarding-panel {
+  border-color: rgb(15 138 95 / 30%);
+}
+
+.onboarding-panel ol {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding-left: 18px;
+}
+
+.onboarding-panel li {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
 }
 
 .metric-grid {
@@ -730,6 +770,8 @@ svg {
 
 .history-panel ol {
   list-style: none;
+  max-height: 230px;
+  overflow-y: auto;
 }
 
 .history-panel li {

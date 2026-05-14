@@ -134,6 +134,7 @@ class SprintMetrics:
     lead_time_avg: float
     bugs_in_production: int
     heijunka_bonus: int
+    cycle_time_by_column: dict[str, float] = field(default_factory=dict)
 
 
 @dataclass
@@ -182,4 +183,5 @@ class GameState:
     consecutive_negative_budget_sprints: int
     heijunka_streak: int
     badges: list[str]
+    kaizen_impacts: list[KaizenImpact] = field(default_factory=list)
     verdict: Verdict = Verdict.PLAYING

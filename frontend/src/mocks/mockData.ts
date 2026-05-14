@@ -205,6 +205,7 @@ export function createMockState(seed = 4242): GameState {
         lead_time_avg: 3,
         bugs_in_production: 0,
         heijunka_bonus: 0,
+        cycle_time_by_column: { backlog: 0, analysis: 1, development: 1, qa: 1 },
       },
     ],
     timeline: [
@@ -223,6 +224,9 @@ export function createMockState(seed = 4242): GameState {
     consecutive_negative_budget_sprints: 0,
     heijunka_streak: 0,
     badges: ['Zero Bug Sprint'],
+    kaizen_impacts: [
+      { kaizen: 'poka-yoke', label: 'poka-yoke', before: 0.64, after: 1, delta: 0.36 },
+    ],
     verdict: 'playing',
   }
 }

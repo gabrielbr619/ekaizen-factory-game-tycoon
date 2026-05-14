@@ -57,6 +57,7 @@ repo = GameRepository(DB_PATH)
 
 @app.get("/healthz")
 def healthz() -> dict[str, str]:
+    repo.ping()
     return {"status": "ok"}
 
 
@@ -86,13 +87,14 @@ def execute_command(
 ) -> object:
     require_session(game_id, ekaizen_session)
     command_id = idempotency_key or body.command_id
-    previous = repo.get_idempotent(game_id, command_id)
-    if previous is not None:
-        return encode_game(previous)
-    game = repo.get(game_id)
-    if game is None:
-        raise HTTPException(status_code=404, detail="Game not found")
+    command_hash = hash_command(body.payload.model_dump(mode="json"))
     try:
+        previous = repo.get_idempotent(game_id, command_id, command_hash)
+        if previous is not None:
+            return encode_game(previous)
+        game = repo.get(game_id)
+        if game is None:
+            raise HTTPException(status_code=404, detail="Game not found")
         payload = body.payload
         if isinstance(payload, MoveCardPayload):
             game = move_card(game, payload.card_id, payload.target)
@@ -106,7 +108,7 @@ def execute_command(
             game = process_sprint(game)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    repo.save_idempotent(game, command_id)
+    repo.save_idempotent(game, command_id, command_hash)
     return encode_game(game)
 
 
@@ -174,6 +176,11 @@ def best_sprint(game: GameState) -> dict[str, int | float]:
 def sign_session(game_id: str) -> str:
     digest = hmac.new(SECRET.encode(), game_id.encode(), hashlib.sha256).hexdigest()
     return f"{game_id}.{digest}"
+
+
+def hash_command(payload: object) -> str:
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(encoded.encode()).hexdigest()
 
 
 def require_session(game_id: str, cookie: str | None) -> None:

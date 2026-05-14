@@ -137,6 +137,7 @@ function applyMockCommand(state: GameState, payload: CommandPayload): GameState 
         lead_time_avg: Math.max(1, 5 - deliveredCards.length),
         bugs_in_production: next.cards.some((card) => card.blocked_by_jidoka) ? 1 : 0,
         heijunka_bonus: next.active_kaizens.includes('heijunka') ? Math.round(throughput * 0.1) : 0,
+        cycle_time_by_column: { backlog: 1, analysis: 1, development: 1, qa: 1 },
       },
     ]
     next.timeline = [

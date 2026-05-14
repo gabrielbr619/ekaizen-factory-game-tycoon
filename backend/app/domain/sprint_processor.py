@@ -7,7 +7,12 @@ from app.domain.models import Column, GameState, SprintMetrics, TimelineEvent, V
 from app.domain.rules.andon import refresh_alerts
 from app.domain.rules.events import generate_events
 from app.domain.rules.flow import active_cards, cards_in_work
-from app.domain.rules.metrics import average_lead_time, calculate_heijunka_bonus, calculate_oee
+from app.domain.rules.metrics import (
+    average_cycle_time_by_column,
+    average_lead_time,
+    calculate_heijunka_bonus,
+    calculate_oee,
+)
 from app.domain.rules.verdict import update_badges, update_verdict
 from app.domain.rules.work import (
     bug_happens,
@@ -28,6 +33,7 @@ def process_sprint(game: GameState) -> GameState:
         return game
     rng = random.Random(game.seed + game.sprint * 97)
     delivered = 0
+    delivered_on_time = 0
     throughput_value = 0
     production_bugs = 0
     for card in cards_in_work(game):
@@ -51,6 +57,8 @@ def process_sprint(game: GameState) -> GameState:
                     penalize_client(game, card.client_id, 20)
             else:
                 delivered += 1
+                if game.sprint <= card.deadline_sprint:
+                    delivered_on_time += 1
                 throughput_value += card.value
                 finish_card(game, card, workers)
     recover_idle_morale(game)
@@ -77,10 +85,11 @@ def process_sprint(game: GameState) -> GameState:
         sprint=game.sprint - 1,
         delivered_cards=delivered,
         throughput_value=throughput_value,
-        oee=calculate_oee(game, delivered, production_bugs),
+        oee=calculate_oee(game, delivered, delivered_on_time, production_bugs),
         lead_time_avg=average_lead_time(game),
         bugs_in_production=production_bugs,
         heijunka_bonus=heijunka_bonus,
+        cycle_time_by_column=average_cycle_time_by_column(game),
     )
     game.metrics_history.append(metrics)
     update_badges(game, metrics)

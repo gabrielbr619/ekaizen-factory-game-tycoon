@@ -84,6 +84,7 @@ const metricsSchema = z.object({
   lead_time_avg: z.number(),
   bugs_in_production: z.number(),
   heijunka_bonus: z.number(),
+  cycle_time_by_column: z.record(z.string(), z.number()),
 })
 
 const timelineEventSchema = z.object({
@@ -128,6 +129,7 @@ export const gameStateSchema = z.object({
   consecutive_negative_budget_sprints: z.number(),
   heijunka_streak: z.number(),
   badges: z.array(z.string()),
+  kaizen_impacts: z.array(kaizenImpactSchema),
   verdict: z.string(),
 })
 

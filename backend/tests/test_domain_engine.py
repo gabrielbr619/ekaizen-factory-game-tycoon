@@ -90,8 +90,9 @@ def test_oee_calculation() -> None:
     game = create_game(123)
     game.cards[0].column = Column.QA
 
-    assert calculate_oee(game, delivered=1, production_bugs=0) == 1.0
-    assert calculate_oee(game, delivered=1, production_bugs=1) == 0.0
+    assert calculate_oee(game, delivered=1, delivered_on_time=1, production_bugs=0) == 1.0
+    assert calculate_oee(game, delivered=1, delivered_on_time=0, production_bugs=0) == 0.0
+    assert calculate_oee(game, delivered=1, delivered_on_time=1, production_bugs=1) == 0.0
 
 
 def test_heijunka_bonus_requires_consistency() -> None:
@@ -110,7 +111,20 @@ def test_heijunka_bonus_requires_consistency() -> None:
         for index in range(1, 5)
     ]
 
-    assert calculate_heijunka_bonus(game, delivered=2, value=10_000) == 1_000
+    assert calculate_heijunka_bonus(game, delivered=2, value=10_000) == 0
+    game.metrics_history = [
+        SprintMetrics(
+            sprint=index,
+            delivered_cards=3,
+            throughput_value=6_000,
+            oee=0.8,
+            lead_time_avg=1.0,
+            bugs_in_production=0,
+            heijunka_bonus=0,
+        )
+        for index in range(1, 5)
+    ]
+    assert calculate_heijunka_bonus(game, delivered=3, value=10_000) == 1_000
     assert game.heijunka_streak == 1
 
 

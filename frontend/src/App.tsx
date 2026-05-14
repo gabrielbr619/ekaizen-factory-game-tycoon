@@ -65,6 +65,7 @@ export function App({ api }: AppProps) {
   const [notice, setNotice] = useState('Inicializando sala de controle...')
   const [busy, setBusy] = useState(false)
   const [confirmSprint, setConfirmSprint] = useState(false)
+  const [showOnboarding, setShowOnboarding] = useState(true)
 
   useEffect(() => {
     let mounted = true
@@ -195,11 +196,11 @@ export function App({ api }: AppProps) {
       </section>
 
       <nav className="view-tabs" aria-label="Telas">
-        <button className={viewMode === 'ops' ? 'active' : ''} onClick={() => setViewMode('ops')} type="button">
+        <button className={viewMode === 'ops' ? 'active' : ''} onClick={() => setViewMode('ops')} title="Voltar para a sala de controle da partida atual" type="button">
           <KanbanSquare aria-hidden="true" />
           Jogo
         </button>
-        <button className={viewMode === 'hall' ? 'active' : ''} onClick={() => loadHall()} type="button">
+        <button className={viewMode === 'hall' ? 'active' : ''} onClick={() => loadHall()} title="Abrir Hall of Kaizen com placar, historico, MVPs e badges" type="button">
           <Award aria-hidden="true" />
           Hall of Kaizen
         </button>
@@ -208,9 +209,11 @@ export function App({ api }: AppProps) {
       {viewMode === 'ops' ? (
         <div className="ops-grid">
           <section className="left-rail">
+            {showOnboarding && game.sprint <= 2 ? <OnboardingPanel onDismiss={() => setShowOnboarding(false)} /> : null}
             <MetricsPanel metrics={lastMetrics} game={game} />
             <ClientsPanel game={game} />
             <EventsPanel events={game.pending_events} />
+            <HistoryPanel timeline={game.timeline} />
           </section>
 
           <KanbanBoard
@@ -261,21 +264,43 @@ export function App({ api }: AppProps) {
         {confirmSprint ? (
           <div className="confirm-actions">
             <span>Encerrar a sprint processa custos, progresso, bugs e eventos no backend.</span>
-            <button disabled={busy} onClick={() => sendCommand({ type: 'process-sprint' }, 'Sprint processada.')} type="button">
+            <button disabled={busy} onClick={() => sendCommand({ type: 'process-sprint' }, 'Sprint processada.')} title="Confirmar processamento irreversivel da sprint no backend" type="button">
               Confirmar sprint
             </button>
-            <button disabled={busy} onClick={() => setConfirmSprint(false)} type="button">
+            <button disabled={busy} onClick={() => setConfirmSprint(false)} title="Cancelar a confirmacao e continuar jogando a sprint atual" type="button">
               Cancelar
             </button>
           </div>
         ) : (
-          <button className="primary-action" disabled={busy} onClick={() => setConfirmSprint(true)} type="button">
+          <button className="primary-action" disabled={busy} onClick={() => setConfirmSprint(true)} title="Abrir confirmacao antes de encerrar a sprint" type="button">
             <Play aria-hidden="true" />
             Encerrar sprint
           </button>
         )}
       </footer>
     </main>
+  )
+}
+
+type OnboardingPanelProps = {
+  onDismiss(): void
+}
+
+function OnboardingPanel({ onDismiss }: OnboardingPanelProps) {
+  return (
+    <section className="panel onboarding-panel" aria-label="Tutorial inicial">
+      <div className="panel-title-row">
+        <PanelTitle icon={<CheckCircle2 aria-hidden="true" />} title="Tutorial inicial" />
+        <button onClick={onDismiss} title="Ocultar tutorial inicial nesta partida" type="button">
+          Ocultar
+        </button>
+      </div>
+      <ol>
+        <li>Selecione um card e mova pelo fluxo Backlog, Analise, Dev, QA e Done.</li>
+        <li>Alocar dev em card ativo reduz risco de atraso, bug e perda de reputacao.</li>
+        <li>Encerrar sprint e irreversivel: o backend calcula custo, entrega, bugs, OEE e eventos.</li>
+      </ol>
+    </section>
   )
 }
 
@@ -338,6 +363,9 @@ function MetricsPanel({ metrics, game }: MetricsPanelProps) {
       <div className="metric-grid">
         <Metric label="OEE" value={percentFormatter.format(metrics?.oee ?? 0)} title="OEE vem do backend: disponibilidade x performance x qualidade." />
         <Metric label="Lead Time" value={`${metrics?.lead_time_avg ?? 0} sp`} title="Lead Time medio recebido do backend." />
+        <Metric label="Cycle Analise" value={`${metrics?.cycle_time_by_column.analysis ?? 0} sp`} title="Tempo medio por coluna recebido do backend para identificar gargalos." />
+        <Metric label="Cycle Dev" value={`${metrics?.cycle_time_by_column.development ?? 0} sp`} title="Tempo medio por coluna recebido do backend para identificar gargalos." />
+        <Metric label="Cycle QA" value={`${metrics?.cycle_time_by_column.qa ?? 0} sp`} title="Tempo medio por coluna recebido do backend para identificar gargalos." />
         <Metric label="Throughput" value={currencyFormatter.format(metrics?.throughput_value ?? 0)} title="Valor entregue na ultima sprint." />
         <Metric label="Heijunka" value={currencyFormatter.format(metrics?.heijunka_bonus ?? 0)} title="Bonus por ritmo constante de entregas." />
         <Metric label="Bugs prod." value={`${metrics?.bugs_in_production ?? 0}`} title="Bugs que escaparam para producao na ultima sprint." />
@@ -451,7 +479,7 @@ function WorkCard({ card, game, selected, onSelect, onMove }: WorkCardProps) {
       <div className="assigned-list">
         {assigned.length === 0 ? <span>Sem dev</span> : assigned.map((name) => <span key={name}>{name}</span>)}
       </div>
-      <button className="move-button" disabled={!canMove} onClick={onMove} type="button">
+      <button className="move-button" disabled={!canMove} onClick={onMove} title={canMove ? `Mover ${card.title} para ${columnLabel(nextColumn(card.column) ?? card.column)}` : 'Card ja esta em Done'} type="button">
         Mover
         <ChevronRight aria-hidden="true" />
       </button>
@@ -490,6 +518,11 @@ function DevelopersPanel({ developers, selectedCard, selectedDevId, onSelectDev,
               className="tiny-action"
               disabled={selectedCard === null || selectedCard.column === 'backlog' || selectedCard.column === 'done' || !dev.active}
               onClick={() => onAllocate(dev)}
+              title={
+                selectedCard === null
+                  ? 'Selecione um card antes de alocar'
+                  : `Alocar ${dev.name} no card ${selectedCard.title}`
+              }
               type="button"
             >
               Alocar
@@ -625,7 +658,7 @@ function HallPanel({ hall, game, onRestart }: HallPanelProps) {
           <h2>Hall of Kaizen</h2>
           <p>Veredito: {verdictLabel(source.verdict)}</p>
         </div>
-        <button onClick={onRestart} type="button">
+        <button onClick={onRestart} title="Iniciar uma nova partida" type="button">
           <RotateCcw aria-hidden="true" />
           Jogar novamente
         </button>
@@ -685,7 +718,7 @@ function HistoryPanel({ timeline }: HistoryPanelProps) {
     <section className="panel history-panel" aria-label="Historico">
       <PanelTitle icon={<History aria-hidden="true" />} title="Historico" />
       <ol>
-        {timeline.slice(0, 8).map((event) => (
+        {timeline.map((event) => (
           <li key={`${event.sprint}-${event.kind}-${event.message}`}>
             <span>S{event.sprint}</span>
             <p>{event.message}</p>

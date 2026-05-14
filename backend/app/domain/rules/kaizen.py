@@ -8,11 +8,10 @@ from app.domain.models import (
     KaizenType,
     Level,
     Specialty,
-    SprintMetrics,
     TimelineEvent,
 )
 from app.domain.rules.andon import refresh_alerts
-from app.domain.rules.metrics import average_lead_time, current_oee
+from app.domain.rules.metrics import current_oee
 from app.domain.rules.work import find_dev, train_dev
 
 
@@ -21,7 +20,7 @@ def apply_kaizen(game: GameState, kaizen: KaizenType, target_id: str | None = No
     if game.kaizen_points < cost:
         raise ValueError("Pontos de Kaizen insuficientes.")
     game.kaizen_points -= cost
-    before = current_oee(game)
+    before = kaizen_signal(game, kaizen, target_id)
     if kaizen == KaizenType.TRAIN_DEV:
         if target_id is None:
             raise ValueError("Treinar Dev exige um alvo.")
@@ -56,21 +55,36 @@ def apply_kaizen(game: GameState, kaizen: KaizenType, target_id: str | None = No
                 dev.moral = min(100, dev.moral + 5)
     if kaizen not in game.active_kaizens:
         game.active_kaizens.append(kaizen)
-    after = min(1.0, before + 0.04 * cost)
-    game.timeline.append(TimelineEvent(game.sprint, "kaizen", f"Kaizen aplicado: {kaizen.value}."))
-    game.metrics_history.append(
-        SprintMetrics(game.sprint, 0, 0, after, average_lead_time(game), 0, 0)
+    after = kaizen_signal(game, kaizen, target_id)
+    game.kaizen_impacts.append(
+        KaizenImpact(kaizen, kaizen.value, before, after, round(after - before, 3))
     )
+    game.timeline.append(TimelineEvent(game.sprint, "kaizen", f"Kaizen aplicado: {kaizen.value}."))
     return refresh_alerts(game)
 
 
 def top_kaizens(game: GameState) -> list[KaizenImpact]:
-    impacts: list[KaizenImpact] = []
-    for index, kaizen in enumerate(game.active_kaizens[:3]):
-        before = 0.55 + index * 0.04
-        after = min(0.98, before + 0.08 + index * 0.02)
-        impacts.append(KaizenImpact(kaizen, kaizen.value, before, after, after - before))
-    return impacts
+    return sorted(game.kaizen_impacts, key=lambda item: item.delta, reverse=True)[:3]
+
+
+def kaizen_signal(game: GameState, kaizen: KaizenType, target_id: str | None) -> float:
+    if kaizen == KaizenType.TRAIN_DEV and target_id is not None:
+        return float(find_dev(game, target_id).speed)
+    if kaizen == KaizenType.WIP_INCREASE:
+        column = target_id if target_id is not None else "development"
+        return float(game.wip_limits.get(column, 0))
+    if kaizen == KaizenType.MARKETING:
+        return float(len([client for client in game.clients if client.active]))
+    if kaizen == KaizenType.INTERNS:
+        return float(len([dev for dev in game.developers if dev.active]))
+    if kaizen == KaizenType.REST_SPACE:
+        active_devs = [dev for dev in game.developers if dev.active]
+        if not active_devs:
+            return 0.0
+        return round(sum(dev.moral for dev in active_devs) / len(active_devs), 2)
+    if kaizen in game.active_kaizens:
+        return 1.0
+    return current_oee(game)
 
 
 def kaizen_cost(kaizen: KaizenType) -> int:
