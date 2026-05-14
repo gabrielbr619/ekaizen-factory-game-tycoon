@@ -25,6 +25,10 @@ export function createMockApi(): GameApi {
   let state = createMockState()
 
   return {
+    async resumeGame(): Promise<GameState | null> {
+      return null
+    },
+
     async startGame(seed?: number): Promise<GameState> {
       await wait()
       state = createMockState(seed)

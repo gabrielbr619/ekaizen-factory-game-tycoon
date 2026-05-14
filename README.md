@@ -70,12 +70,13 @@ O contrato atual do backend cobre:
 
 - `GET /healthz`
 - `POST /games`
+- `GET /games/current`
 - `GET /games/{game_id}`
 - `POST /games/{game_id}/commands`
 - `GET /games/{game_id}/events`
 - `GET /games/{game_id}/hall-of-kaizen`
 
-Mutações passam por `POST /games/{game_id}/commands` com `command_id` no corpo e aceitam `Idempotency-Key` no header. O backend usa cookie de sessao assinado para proteger o acesso a uma partida criada.
+Mutações passam por `POST /games/{game_id}/commands` com `command_id` no corpo e aceitam `Idempotency-Key` no header. O backend usa cookie de sessao assinado para proteger o acesso a uma partida criada. O frontend tenta `GET /games/current` na inicializacao para reabrir a partida da sessao atual antes de criar uma nova.
 
 O endpoint de eventos usa Server-Sent Events como canal minimo de tempo real. Ele existe para notificacoes e atualizacoes observaveis da partida; nao substitui o contrato de comandos idempotentes.
 

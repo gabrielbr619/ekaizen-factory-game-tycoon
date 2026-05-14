@@ -31,6 +31,14 @@ function zodErrorDetail(payload: unknown): string {
 
 export function createHttpApi(): GameApi {
   return {
+    async resumeGame(): Promise<GameState | null> {
+      const response = await fetch(`${apiBaseUrl}/games/current`, {
+        credentials: 'include',
+      })
+      if (response.status === 404 || response.status === 401) return null
+      return gameStateSchema.parse(await parseJson(response))
+    },
+
     async startGame(seed?: number): Promise<GameState> {
       const response = await fetch(`${apiBaseUrl}/games`, {
         method: 'POST',

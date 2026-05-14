@@ -10,6 +10,14 @@ def sign_session(game_id: str, secret: str) -> str:
     return f"{game_id}.{digest}"
 
 
+def session_game_id(cookie: str, secret: str) -> str | None:
+    try:
+        game_id, _digest = cookie.rsplit(".", 1)
+    except ValueError:
+        return None
+    return game_id if is_valid_session(game_id, cookie, secret) else None
+
+
 def is_valid_session(game_id: str, cookie: str, secret: str) -> bool:
     return hmac.compare_digest(cookie, sign_session(game_id, secret))
 

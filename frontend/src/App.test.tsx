@@ -10,6 +10,7 @@ function createTestApi(state = createMockState()): GameApi {
   const hall = createMockHall(currentState)
 
   return {
+    resumeGame: vi.fn(async (): Promise<GameState | null> => null),
     startGame: vi.fn(async (): Promise<GameState> => currentState),
     sendCommand: vi.fn(async (_gameId: string, _payload: CommandPayload): Promise<GameState> => currentState),
     loadHallOfKaizen: vi.fn(async (): Promise<HallOfKaizen> => hall),
@@ -56,6 +57,18 @@ describe('Factory game UI', () => {
     expect(within(devPanel).getByText('Lia Backend')).toBeInTheDocument()
     expect(within(devPanel).getByText('Theo Produto')).toBeInTheDocument()
     expect(within(devPanel).getByText('42')).toBeInTheDocument()
+  })
+
+  it('resumes an existing game before creating a new one', async () => {
+    const api = createTestApi()
+    vi.mocked(api.resumeGame).mockResolvedValue(createMockState())
+
+    render(<App api={api} />)
+
+    expect(await screen.findByRole('heading', { name: 'Kanban operacional' })).toBeInTheDocument()
+    expect(api.resumeGame).toHaveBeenCalledOnce()
+    expect(api.startGame).not.toHaveBeenCalled()
+    expect(screen.queryByRole('dialog', { name: 'Tutorial inicial' })).not.toBeInTheDocument()
   })
 
   it('exposes card, developer and metric details without native title-only help', async () => {

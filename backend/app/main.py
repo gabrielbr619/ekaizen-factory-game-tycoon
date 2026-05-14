@@ -14,7 +14,7 @@ from fastapi.responses import StreamingResponse
 from app.api.command_dispatcher import apply_command_payload
 from app.api.hall import build_hall_of_kaizen_response
 from app.api.schemas import CommandRequest, CreateGameRequest
-from app.api.security import hash_command, is_valid_session, sign_session
+from app.api.security import hash_command, is_valid_session, session_game_id, sign_session
 from app.api.serialization import encode_game
 from app.domain.engine import create_game
 from app.persistence import GameRepository
@@ -68,6 +68,19 @@ def start_game(
     else:
         repo.save(game)
     set_session_cookie(response, game.id)
+    return encode_game(game)
+
+
+@app.get("/games/current")
+def current_game(ekaizen_session: Annotated[str | None, Cookie()] = None) -> object:
+    if ekaizen_session is None:
+        raise HTTPException(status_code=404, detail="No active game session")
+    game_id = session_game_id(ekaizen_session, SECRET)
+    if game_id is None:
+        raise HTTPException(status_code=401, detail="Invalid session cookie")
+    game = repo.get(game_id)
+    if game is None:
+        raise HTTPException(status_code=404, detail="Game not found")
     return encode_game(game)
 
 

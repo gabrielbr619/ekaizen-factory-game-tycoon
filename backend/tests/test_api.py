@@ -129,6 +129,26 @@ def test_create_game_is_idempotent_when_key_is_retried() -> None:
     assert first.headers["set-cookie"] == second.headers["set-cookie"]
 
 
+def test_current_game_resumes_from_session_cookie() -> None:
+    client = TestClient(app)
+    created = client.post("/games", json={"seed": 777})
+    game_id = created.json()["id"]
+
+    resumed = client.get("/games/current")
+
+    assert resumed.status_code == 200
+    assert resumed.json()["id"] == game_id
+
+
+def test_current_game_without_session_returns_not_found() -> None:
+    client = TestClient(app)
+
+    response = client.get("/games/current")
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "No active game session"
+
+
 def test_create_game_idempotency_key_rejects_different_payload() -> None:
     client = TestClient(app)
     key = f"new-game-conflict-{uuid4()}"

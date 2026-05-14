@@ -17,8 +17,12 @@ type AppProps = {
 }
 
 type ViewMode = 'ops' | 'hall'
+type InitialGameLoad = {
+  state: GameState
+  resumed: boolean
+}
 
-const initialGameRequests = new WeakMap<GameApi, Promise<GameState>>()
+const initialGameRequests = new WeakMap<GameApi, Promise<InitialGameLoad>>()
 const sequentialFlowNotice = 'Fluxo sequencial: mova cards apenas para a proxima coluna.'
 const themeStorageKey = 'factory-game-theme'
 
@@ -26,10 +30,13 @@ function initialTheme(): ThemeMode {
   return localStorage.getItem(themeStorageKey) === 'dark' ? 'dark' : 'light'
 }
 
-function loadInitialGame(api: GameApi): Promise<GameState> {
+function loadInitialGame(api: GameApi): Promise<InitialGameLoad> {
   const existing = initialGameRequests.get(api)
   if (existing !== undefined) return existing
-  const request = api.startGame()
+  const request = api.resumeGame().then(async (state) => {
+    if (state !== null) return { state, resumed: true }
+    return { state: await api.startGame(), resumed: false }
+  })
   initialGameRequests.set(api, request)
   return request
 }
@@ -43,7 +50,7 @@ export function App({ api }: AppProps) {
   const [notice, setNotice] = useState('Inicializando sala de controle...')
   const [busy, setBusy] = useState(false)
   const [confirmSprint, setConfirmSprint] = useState(false)
-  const [showOnboarding, setShowOnboarding] = useState(true)
+  const [showOnboarding, setShowOnboarding] = useState(false)
   const [theme, setTheme] = useState<ThemeMode>(initialTheme)
 
   useEffect(() => {
@@ -55,11 +62,12 @@ export function App({ api }: AppProps) {
     let mounted = true
     setBusy(true)
     loadInitialGame(api)
-      .then((state) => {
+      .then(({ state, resumed }) => {
         if (mounted) {
           setGame(state)
           setSelectedCardId(state.cards.find((card) => card.column !== 'done')?.id ?? null)
           setSelectedDevId(state.developers.find((dev) => dev.active)?.id ?? null)
+          setShowOnboarding(!resumed)
           setNotice(state.id.startsWith('mock-') ? 'Mock temporario ativo: backend indisponivel.' : '')
         }
       })
@@ -105,6 +113,7 @@ export function App({ api }: AppProps) {
       setGame(state)
       setSelectedCardId(state.cards.find((card) => card.column !== 'done')?.id ?? null)
       setSelectedDevId(state.developers.find((dev) => dev.active)?.id ?? null)
+      setShowOnboarding(true)
       setNotice('Nova partida iniciada.')
     } catch (error) {
       setNotice(error instanceof Error ? error.message : 'Falha ao iniciar partida.')

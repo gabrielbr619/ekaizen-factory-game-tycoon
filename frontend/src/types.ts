@@ -172,6 +172,7 @@ export type CommandPayload =
   | { type: 'process-sprint' }
 
 export interface GameApi {
+  resumeGame(): Promise<GameState | null>
   startGame(seed?: number): Promise<GameState>
   sendCommand(gameId: string, payload: CommandPayload): Promise<GameState>
   loadHallOfKaizen(gameId: string): Promise<HallOfKaizen>
