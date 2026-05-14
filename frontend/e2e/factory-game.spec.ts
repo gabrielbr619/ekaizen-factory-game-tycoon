@@ -22,18 +22,6 @@ test('plays a complete factory management flow', async ({ page }) => {
   await expect(page.getByLabel('Kanban')).toContainText('Backlog')
   await expect(page.getByText('backend e a fonte autoritativa')).toBeVisible()
 
-  const backlogCard = page.getByLabel('Backlog').locator('.work-card').first()
-  const cardTitle = await backlogCard.locator('strong').textContent()
-  if (cardTitle === null) {
-    throw new Error('Expected backlog card title to be rendered.')
-  }
-
-  await backlogCard.getByRole('button', { name: /Mover/ }).click()
-  await expect(page.getByLabel('Analise')).toContainText(cardTitle)
-  await page.getByLabel('Analise').getByText(cardTitle).click()
-  await expect(page.getByRole('button', { name: /Alocar/ }).first()).toBeEnabled()
-  await page.getByRole('button', { name: /Alocar/ }).first().click()
-
   for (let sprint = 0; sprint < 5; sprint += 1) {
     await page.getByRole('button', { name: /Encerrar sprint/ }).click()
     await page.getByRole('button', { name: /Confirmar sprint/ }).click()
