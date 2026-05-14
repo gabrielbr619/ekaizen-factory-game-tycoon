@@ -24,14 +24,25 @@ test('plays a complete factory management flow', async ({ page }) => {
 
   for (let sprint = 0; sprint < 5; sprint += 1) {
     await page.getByRole('button', { name: /Encerrar sprint/ }).click()
+    const commandResponse = page.waitForResponse((response) =>
+      response.request().method() === 'POST' && response.url().includes('/commands'),
+    )
     await page.getByRole('button', { name: /Confirmar sprint/ }).click()
-    await expect(page.getByText('Sprint processada.')).toBeVisible()
+    expect((await commandResponse).ok()).toBe(true)
   }
 
+  const hireResponse = page.waitForResponse((response) =>
+    response.request().method() === 'POST' && response.url().includes('/commands'),
+  )
   await page.getByLabel('Contratacoes').getByRole('button').first().click()
+  expect((await hireResponse).ok()).toBe(true)
   await expect(page.getByText(/contratado/i)).toBeVisible()
 
+  const kaizenResponse = page.waitForResponse((response) =>
+    response.request().method() === 'POST' && response.url().includes('/commands'),
+  )
   await page.getByRole('button', { name: 'Descanso' }).click()
+  expect((await kaizenResponse).ok()).toBe(true)
   await expect(page.getByText(/PDCA aplicado/i)).toBeVisible()
 
   await page.getByRole('button', { name: 'Hall of Kaizen' }).click()
