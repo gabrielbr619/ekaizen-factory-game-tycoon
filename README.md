@@ -8,7 +8,9 @@ O backend FastAPI e a fonte autoritativa do estado e das regras. O frontend Vite
 
 Este repositorio contem uma versao integrada e jogavel do desafio. O backend FastAPI persiste partidas em SQLite, expoe os endpoints principais, processa as regras de dominio e e a fonte autoritativa do estado. O frontend Vite/React consome a API real, renderiza o jogo como primeira tela e envia comandos para o backend.
 
-URL publica do deploy: nao declarada neste README ate validacao final em ambiente publico. O PDF exige uma URL publica funcional no envio; este repositorio nao deve prometer uma URL sem healthcheck, criacao de partida e fluxo basico validados na propria URL.
+URL publica do deploy: https://factory-game-tycoon.duckdns.org
+
+URL validada em ambiente publico com healthcheck, criacao de partida e leitura autenticada do estado por cookie de sessao.
 
 Repositorio publico: https://github.com/gabrielbr619/ekaizen-factory-game-tycoon
 
@@ -141,12 +143,17 @@ A auditoria de aderencia dos gates de teste/CI ao PDF esta em `docs/TEST_AUDIT.m
 
 ## Entrega publica
 
-O PDF exige que o envio final inclua uma URL publica funcional. Como este documento nao valida deploy, a URL deve ser preenchida somente apos verificacao real.
+O PDF exige que o envio final inclua uma URL publica funcional.
 
-Opcoes simples para a entrega:
+URL publica validada: https://factory-game-tycoon.duckdns.org
 
-- Frontend: Vercel, Netlify ou container estatico equivalente.
-- Backend: Render, Railway, Fly.io ou VPS com Docker Compose.
-- Banco: SQLite em volume persistente no backend para a versao do desafio; PostgreSQL seria a evolucao recomendada para producao real.
+Topologia usada na entrega:
 
-A URL publica deve ser validada com `GET /healthz`, criacao de partida e fluxo basico do jogo antes da entrega final.
+- VPS com Docker Compose.
+- Nginx de borda compartilhado em container.
+- HTTPS via Let's Encrypt.
+- Frontend estatico em container Nginx, com proxy para backend.
+- Backend FastAPI interno.
+- SQLite em volume persistente do backend para a versao do desafio; PostgreSQL seria a evolucao recomendada para producao real.
+
+A URL publica foi validada com `GET /healthz`, criacao de partida e leitura autenticada do estado por cookie de sessao.
