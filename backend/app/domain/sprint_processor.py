@@ -28,8 +28,10 @@ from app.domain.rules.work import (
     find_dev,
     finish_card,
     handle_god_tier_retention,
+    handle_headhunters,
     handle_raise_requests,
     handle_resignations,
+    handle_temporary_contracts,
     payroll,
     penalize_client,
     qa_detection_chance,
@@ -96,13 +98,13 @@ def _resolve_oee_audit(
     active_clients = [client for client in game.clients if client.active]
     if not active_clients:
         return
-    lost_client = min(active_clients, key=lambda client: client.reputation)
-    lost_client.active = False
+    canceled_client = min(active_clients, key=lambda client: client.reputation)
+    canceled_client.active = False
     game.timeline.append(
         TimelineEvent(
             audited_sprint,
             "oee-audit",
-            f"Auditoria de OEE reprovada: {lost_client.name} cancelou o contrato.",
+            f"Auditoria de OEE reprovada: {canceled_client.name} cancelou o contrato.",
         )
     )
 
@@ -163,7 +165,9 @@ def process_sprint(game: GameState) -> GameState:
                 throughput_value += card.value
                 finish_card(game, card, workers)
     recover_idle_morale(game)
+    handle_temporary_contracts(game)
     handle_god_tier_retention(game)
+    handle_headhunters(game)
     handle_raise_requests(game)
     for card in list(active_cards(game)):
         if game.sprint > card.deadline_sprint and card.column != Column.DONE:

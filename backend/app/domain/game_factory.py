@@ -116,6 +116,8 @@ def generate_cards(game: GameState, amount: int) -> list[Card]:
         )[0]
         points, value, deadline = size_profile(size)
         required = required_specialty(card_type, rng)
+        if game.sprint <= 8 and required == [Specialty.FRONTEND] and rng.random() < 0.6:
+            required = [Specialty.BACKEND]
         client = rng.choice(active_clients)
         title = rng.choice(CARD_TITLES[card_type])
         cards.append(

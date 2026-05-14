@@ -14,8 +14,18 @@ from app.domain.rules.andon import refresh_alerts
 from app.domain.rules.metrics import current_oee
 from app.domain.rules.work import find_dev, train_dev
 
+NON_STACKING_KAIZENS = {
+    KaizenType.POKA_YOKE,
+    KaizenType.QA_AUTOMATION,
+    KaizenType.MENTORING,
+    KaizenType.DEVOPS_CULTURE,
+    KaizenType.HEIJUNKA,
+}
+
 
 def apply_kaizen(game: GameState, kaizen: KaizenType, target_id: str | None = None) -> GameState:
+    if kaizen in NON_STACKING_KAIZENS and kaizen in game.active_kaizens:
+        raise ValueError("Kaizen permanente ja esta ativo.")
     cost = kaizen_cost(kaizen)
     if game.kaizen_points < cost:
         raise ValueError("Pontos de Kaizen insuficientes.")
@@ -50,6 +60,7 @@ def apply_kaizen(game: GameState, kaizen: KaizenType, target_id: str | None = No
                     0.08,
                     75,
                     "intern",
+                    contract_ends_sprint=game.sprint + 5,
                 )
                 for index in range(1, 4)
             ]

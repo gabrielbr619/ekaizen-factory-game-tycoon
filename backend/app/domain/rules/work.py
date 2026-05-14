@@ -16,7 +16,7 @@ from app.domain.models import (
     TimelineEvent,
 )
 
-REPUTATION_GAIN_ON_DELIVERY = 20
+REPUTATION_GAIN_ON_DELIVERY = 50
 
 
 def find_dev(game: GameState, dev_id: str) -> Developer:
@@ -65,9 +65,9 @@ def can_contribute_to_card_level(dev: Developer, card: Card, workers: list[Devel
 
 def stage_required_points(card: Card) -> int:
     if card.column == Column.ANALYSIS:
-        return max(3, ceil(card.points_total * 0.35))
+        return max(2, ceil(card.points_total * 0.2))
     if card.column == Column.QA:
-        return max(3, ceil(card.points_total * 0.35))
+        return max(2, ceil(card.points_total * 0.2))
     return card.points_total
 
 
@@ -90,6 +90,11 @@ def sprint_progress(
     multiplier = multiplier_by_count.get(len(workers), 2.4)
     total = 0.0
     for worker in workers:
+        if (
+            worker.conference_return_sprint is not None
+            and worker.conference_return_sprint >= game.sprint
+        ):
+            continue
         if not can_contribute_to_card_level(worker, card, workers):
             continue
         speed = worker.speed * moral_multiplier(worker)
@@ -193,7 +198,8 @@ def finish_card(
         if clean:
             worker.clean_cards_delivered += 1
     client = find_client(game, card.client_id)
-    client.reputation = min(100, client.reputation + REPUTATION_GAIN_ON_DELIVERY)
+    if clean:
+        client.reputation = min(100, client.reputation + REPUTATION_GAIN_ON_DELIVERY)
     game.timeline.append(
         TimelineEvent(game.sprint, "done", f"{card.title} entregue para {client.name}.")
     )
@@ -260,6 +266,13 @@ def handle_raise_requests(game: GameState) -> None:
     for dev in game.developers:
         if not dev.active or dev.raise_request_deadline_sprint is None:
             continue
+        if (
+            dev.raise_requested_salary is not None
+            and game.sprint >= dev.raise_request_deadline_sprint - 1
+            and game.budget - (dev.raise_requested_salary - dev.salary) >= -2_000
+        ):
+            dev.salary = dev.raise_requested_salary
+            dev.moral = min(100, dev.moral + 8)
         if dev.raise_requested_salary is not None and dev.salary >= dev.raise_requested_salary:
             dev.raise_request_deadline_sprint = None
             dev.raise_requested_salary = None
@@ -281,6 +294,57 @@ def handle_raise_requests(game: GameState) -> None:
         game.timeline.append(
             TimelineEvent(game.sprint, "raise-exit", f"{dev.name} saiu apos pedido de aumento.")
         )
+
+
+def handle_headhunters(game: GameState) -> None:
+    for dev in game.developers:
+        if not dev.active or dev.headhunter_deadline_sprint is None:
+            continue
+        if (
+            dev.headhunter_salary is not None
+            and game.sprint >= dev.headhunter_deadline_sprint - 1
+            and game.budget - (dev.headhunter_salary - dev.salary) >= -2_000
+        ):
+            dev.salary = dev.headhunter_salary
+            dev.moral = min(100, dev.moral + 10)
+        if dev.headhunter_salary is not None and dev.salary >= dev.headhunter_salary:
+            dev.headhunter_deadline_sprint = None
+            dev.headhunter_salary = None
+            game.timeline.append(
+                TimelineEvent(game.sprint, "headhunter-retained", f"{dev.name} foi retido.")
+            )
+            continue
+        if game.sprint < dev.headhunter_deadline_sprint:
+            continue
+        dev.active = False
+        dev.headhunter_deadline_sprint = None
+        dev.headhunter_salary = None
+        game.knowledge_loss_until_sprint = game.sprint + 3
+        for client in game.clients:
+            if client.active:
+                client.reputation = max(0, client.reputation - 15)
+        for card in game.cards:
+            if dev.id in card.assigned_dev_ids:
+                card.assigned_dev_ids.remove(dev.id)
+        game.timeline.append(
+            TimelineEvent(game.sprint, "headhunter-exit", f"{dev.name} saiu por headhunter.")
+        )
+
+
+def handle_temporary_contracts(game: GameState) -> None:
+    for dev in game.developers:
+        if (
+            dev.active
+            and dev.contract_ends_sprint is not None
+            and game.sprint >= dev.contract_ends_sprint
+        ):
+            dev.active = False
+            for card in game.cards:
+                if dev.id in card.assigned_dev_ids:
+                    card.assigned_dev_ids.remove(dev.id)
+            game.timeline.append(
+                TimelineEvent(game.sprint, "intern-exit", f"{dev.name} encerrou o programa.")
+            )
 
 
 def train_dev(dev: Developer) -> None:

@@ -22,9 +22,18 @@ EVENT_KEYS = [
     "urgent-client",
     "raise-request",
     "retro-bug",
+    "headhunter",
+    "conference",
     "oee-audit",
     "market-trend",
     "referral",
+]
+
+TREND_SPECIALTIES = [
+    Specialty.FRONTEND,
+    Specialty.BACKEND,
+    Specialty.DEVOPS,
+    Specialty.FULLSTACK,
 ]
 
 
@@ -113,7 +122,7 @@ def _apply_retro_bug(game: GameState, rng: random.Random) -> str:
         points_total=_points_for_size(source.size),
         progress=0,
         value=0,
-        deadline_sprint=game.sprint + 2,
+        deadline_sprint=game.sprint + 3,
         client_id=source.client_id,
         column=Column.BACKLOG,
         created_sprint=game.sprint,
@@ -142,6 +151,44 @@ def _apply_raise_request(game: GameState, rng: random.Random) -> str:
     return f"Pedido de aumento: {dev.name} exige +20% salario ou sai em 2 sprints."
 
 
+def _apply_headhunter(game: GameState, rng: random.Random) -> str:
+    targets = [
+        dev
+        for dev in game.developers
+        if dev.active and dev.level in {Level.SENIOR, Level.GOD_TIER}
+    ]
+    if not targets:
+        return "Headhunter: nenhum Senior/God-tier ativo foi abordado."
+    dev = rng.choice(targets)
+    dev.headhunter_salary = int(dev.salary * 1.5)
+    dev.headhunter_deadline_sprint = game.sprint + 2
+    game.timeline.append(
+        TimelineEvent(
+            game.sprint,
+            "event",
+            f"Headhunter: {dev.name} recebeu oferta externa.",
+        )
+    )
+    return f"Headhunter: {dev.name} precisa receber R$ {dev.headhunter_salary} ou sai em 2 sprints."
+
+
+def _apply_conference(game: GameState, rng: random.Random) -> str:
+    active_devs = [dev for dev in game.developers if dev.active]
+    if not active_devs:
+        return "Conferencia: nao ha dev ativo para participar."
+    dev = rng.choice(active_devs)
+    dev.moral = min(100, dev.moral + 20)
+    dev.conference_return_sprint = game.sprint
+    game.timeline.append(
+        TimelineEvent(
+            game.sprint,
+            "event",
+            f"Conferencia: {dev.name} ganhou moral, mas ficara 1 sprint improdutivo.",
+        )
+    )
+    return f"Conferencia: {dev.name} ganhou +20 moral e perde 1 sprint produtivo."
+
+
 def _apply_oee_audit(game: GameState) -> str:
     game.pending_oee_audit_sprint = game.sprint
     game.timeline.append(
@@ -151,7 +198,9 @@ def _apply_oee_audit(game: GameState) -> str:
 
 
 def _apply_market_trend(game: GameState, rng: random.Random) -> str:
-    specialty = rng.choice(list(Specialty))
+    if game.market_trends:
+        return "Tendencia de mercado: sinal mantido, sem nova demanda extra."
+    specialty = rng.choice(TREND_SPECIALTIES)
     game.market_trends.append(MarketTrend(specialty, game.sprint + 5))
     game.timeline.append(
         TimelineEvent(
@@ -172,6 +221,10 @@ def apply_event(game: GameState, event_key: str, rng: random.Random) -> str:
         return _apply_retro_bug(game, rng)
     if event_key == "raise-request":
         return _apply_raise_request(game, rng)
+    if event_key == "headhunter":
+        return _apply_headhunter(game, rng)
+    if event_key == "conference":
+        return _apply_conference(game, rng)
     if event_key == "oee-audit":
         return _apply_oee_audit(game)
     if event_key == "market-trend":
@@ -180,5 +233,36 @@ def apply_event(game: GameState, event_key: str, rng: random.Random) -> str:
 
 
 def generate_events(game: GameState, rng: random.Random) -> list[str]:
-    selected_events = rng.sample(EVENT_KEYS, k=rng.randint(1, 3))
+    weighted_events: list[tuple[str, int]] = [
+        ("referral", 8),
+        ("market-trend", 1),
+    ]
+    if game.sprint >= 5:
+        weighted_events.append(("conference", 5))
+    if game.sprint >= 12:
+        weighted_events.extend([("urgent-client", 1), ("raise-request", 1)])
+    if game.sprint >= 18 and any(
+        dev.active and dev.level in {Level.SENIOR, Level.GOD_TIER}
+        for dev in game.developers
+    ):
+        weighted_events.append(("headhunter", 1))
+    if game.sprint >= 15 and game.pending_oee_audit_sprint is None:
+        weighted_events.append(("oee-audit", 1))
+    if game.sprint >= 15 and any(card.column == Column.DONE for card in game.cards):
+        weighted_events.append(("retro-bug", 1))
+
+    event_count = rng.randint(1, 3)
+
+    selected_events: list[str] = []
+    pool = weighted_events.copy()
+    for _ in range(min(event_count, len(pool))):
+        total_weight = sum(weight for _, weight in pool)
+        pick = rng.randint(1, total_weight)
+        cursor = 0
+        for index, (event_key, weight) in enumerate(pool):
+            cursor += weight
+            if pick <= cursor:
+                selected_events.append(event_key)
+                pool.pop(index)
+                break
     return [apply_event(game, event_key, rng) for event_key in selected_events]

@@ -40,7 +40,13 @@ def average_lead_time(game: GameState) -> float:
     if not done_cards:
         return 0.0
     total = sum(sum(card.cycle_times.values()) for card in done_cards)
-    return round(total / len(done_cards), 2)
+    lead_time = total / len(done_cards)
+    if (
+        game.knowledge_loss_until_sprint is not None
+        and game.sprint <= game.knowledge_loss_until_sprint
+    ):
+        lead_time *= 1.1
+    return round(lead_time, 2)
 
 
 def average_cycle_time_by_column(game: GameState) -> dict[str, float]:

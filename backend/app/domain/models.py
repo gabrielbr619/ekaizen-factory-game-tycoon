@@ -92,6 +92,10 @@ class Developer:
     god_last_kaizen_sprint: int = 0
     raise_request_deadline_sprint: int | None = None
     raise_requested_salary: int | None = None
+    headhunter_deadline_sprint: int | None = None
+    headhunter_salary: int | None = None
+    conference_return_sprint: int | None = None
+    contract_ends_sprint: int | None = None
 
 
 @dataclass
@@ -207,4 +211,5 @@ class GameState:
     kaizen_impacts: list[KaizenImpact] = field(default_factory=list)
     market_trends: list[MarketTrend] = field(default_factory=list)
     pending_oee_audit_sprint: int | None = None
+    knowledge_loss_until_sprint: int | None = None
     verdict: Verdict = Verdict.PLAYING

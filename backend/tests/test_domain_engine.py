@@ -20,11 +20,14 @@ from app.domain.models import (
     Specialty,
     SprintMetrics,
 )
+from app.domain.rules.andon import refresh_alerts
 from app.domain.rules.events import apply_event
 from app.domain.rules.work import (
     REPUTATION_GAIN_ON_DELIVERY,
     handle_god_tier_retention,
+    handle_headhunters,
     handle_raise_requests,
+    handle_temporary_contracts,
     level_profile,
     penalize_client,
     specialty_matches,
@@ -202,7 +205,7 @@ def test_moving_completed_qa_card_to_done_pays_value_once() -> None:
     ) - game.fixed_cost - sum(
         item.salary for item in game.developers if item.active
     )
-    assert client.reputation == initial_reputation + REPUTATION_GAIN_ON_DELIVERY
+    assert client.reputation == min(100, initial_reputation + REPUTATION_GAIN_ON_DELIVERY)
 
 
 def test_undetected_qa_bug_emerges_later_as_production_bug() -> None:
@@ -382,7 +385,7 @@ def test_retro_bug_event_turns_done_card_into_backlog_bug() -> None:
     assert bug_card.card_type == CardType.BUG
     assert done_card.title in bug_card.title
     assert bug_card.column == Column.BACKLOG
-    assert bug_card.deadline_sprint == game.sprint + 2
+    assert bug_card.deadline_sprint == game.sprint + 3
 
 
 def test_urgent_client_event_penalizes_reputation_when_backlog_wip_is_full() -> None:
@@ -412,6 +415,24 @@ def test_junior_alone_on_large_card_makes_no_progress() -> None:
     assert junior.moral < 80
 
 
+def test_andon_warns_before_sprint_when_junior_is_alone_on_large_card() -> None:
+    game = create_game(123)
+    junior = _developer("junior", Level.JUNIOR)
+    card = _large_backend_card()
+    game.developers = [junior]
+    game.cards = [card]
+    card.assigned_dev_ids = [junior.id]
+
+    game = refresh_alerts(game)
+
+    assert any(
+        alert.code == "large-card-junior-alone"
+        and "junior sozinho em card G" in alert.message
+        and card.title in alert.message
+        for alert in game.andon_alerts
+    )
+
+
 def test_pleno_needs_senior_mentor_on_large_card() -> None:
     game = create_game(123)
     pleno = _developer("pleno", Level.PLENO)
@@ -430,6 +451,25 @@ def test_pleno_needs_senior_mentor_on_large_card() -> None:
     game = process_sprint(game)
 
     assert card.progress > 0
+
+
+def test_andon_warns_before_sprint_when_pleno_lacks_large_card_mentor() -> None:
+    game = create_game(123)
+    pleno = _developer("pleno", Level.PLENO)
+    junior = _developer("junior", Level.JUNIOR)
+    card = _large_backend_card()
+    game.developers = [pleno, junior]
+    game.cards = [card]
+    card.assigned_dev_ids = [pleno.id, junior.id]
+
+    game = refresh_alerts(game)
+
+    assert any(
+        alert.code == "large-card-pleno-no-mentor"
+        and "precisa de mentor Senior/God-tier" in alert.message
+        and card.title in alert.message
+        for alert in game.andon_alerts
+    )
 
 
 def test_brooks_law_overstaffing_increases_moral_drain_and_bug_risk() -> None:
@@ -528,12 +568,100 @@ def test_raise_request_event_sets_salary_deadline_and_dev_leaves_if_unanswered()
     assert deadline is not None
 
     game.sprint = deadline
+    game.budget = -3_000
     handle_raise_requests(game)
 
     assert not dev.active
     assert all(
         client.reputation == initial_reputations[client.id] - 5 for client in game.clients
     )
+
+
+def test_raise_request_is_accepted_when_budget_can_absorb_salary_increase() -> None:
+    game = create_game(123)
+    dev = game.developers[0]
+
+    apply_event(game, "raise-request", random.Random(4))
+    requested_salary = dev.raise_requested_salary
+    deadline = dev.raise_request_deadline_sprint
+    assert requested_salary is not None
+    assert deadline is not None
+
+    game.sprint = deadline
+    handle_raise_requests(game)
+
+    assert dev.active
+    assert dev.salary == requested_salary
+    assert dev.raise_request_deadline_sprint is None
+    assert dev.raise_requested_salary is None
+
+
+def test_headhunter_event_targets_senior_and_retention_cost_is_processed() -> None:
+    game = create_game(123)
+    senior = _developer("senior", Level.SENIOR)
+    game.developers = [senior]
+
+    message = apply_event(game, "headhunter", random.Random(7))
+    requested_salary = senior.headhunter_salary
+    deadline = senior.headhunter_deadline_sprint
+    assert "Headhunter" in message
+    assert requested_salary == int(1_500 * 1.5)
+    assert deadline == game.sprint + 2
+
+    game.sprint = deadline
+    handle_headhunters(game)
+
+    assert senior.active
+    assert senior.salary == requested_salary
+    assert senior.headhunter_deadline_sprint is None
+
+
+def test_conference_event_gives_moral_and_blocks_one_productive_sprint() -> None:
+    game = create_game(123)
+    dev = game.developers[0]
+    card = _large_backend_card()
+    game.cards = [card]
+    game.developers = [dev]
+    card.assigned_dev_ids = [dev.id]
+    dev.moral = 60
+
+    message = apply_event(game, "conference", random.Random(8))
+    progress = sprint_progress(game, card, [dev], random.Random(9))
+
+    assert "Conferencia" in message
+    assert dev.moral == 80
+    assert dev.conference_return_sprint == game.sprint
+    assert progress == 0
+
+
+def test_non_stacking_kaizen_cannot_charge_points_twice() -> None:
+    game = create_game(123)
+    game.kaizen_points = 3
+
+    game = apply_kaizen(game, KaizenType.QA_AUTOMATION)
+
+    try:
+        apply_kaizen(game, KaizenType.QA_AUTOMATION)
+    except ValueError as exc:
+        assert "ja esta ativo" in str(exc)
+    else:
+        raise AssertionError("Expected repeated permanent Kaizen to be rejected")
+    assert game.kaizen_points == 1
+
+
+def test_interns_leave_after_five_sprints() -> None:
+    game = create_game(123)
+    game.kaizen_points = 1
+    game = apply_kaizen(game, KaizenType.INTERNS)
+    interns = [dev for dev in game.developers if dev.id.startswith("intern-")]
+
+    assert len(interns) == 3
+    assert all(dev.contract_ends_sprint == game.sprint + 5 for dev in interns)
+
+    game.sprint += 5
+    handle_temporary_contracts(game)
+
+    assert all(not dev.active for dev in interns)
 
 
 def test_oee_audit_event_cancels_lowest_reputation_client_when_average_oee_is_bad() -> None:
