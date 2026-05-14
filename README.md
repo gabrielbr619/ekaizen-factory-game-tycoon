@@ -8,7 +8,7 @@ O backend FastAPI e a fonte autoritativa do estado e das regras. O frontend Vite
 
 Este repositorio contem uma versao integrada e jogavel do desafio. O backend FastAPI persiste partidas em SQLite, expoe os endpoints principais, processa as regras de dominio e e a fonte autoritativa do estado. O frontend Vite/React consome a API real, renderiza o jogo como primeira tela e envia comandos para o backend.
 
-URL publica do deploy: https://aerospace-mls-brain-eur.trycloudflare.com
+URL publica do deploy: https://february-served-sweet-silver.trycloudflare.com
 
 Repositorio publico: https://github.com/gabrielbr619/ekaizen-factory-game-tycoon
 
