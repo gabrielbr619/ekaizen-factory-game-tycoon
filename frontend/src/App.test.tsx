@@ -38,6 +38,31 @@ describe('Factory game UI', () => {
     expect(within(devPanel).getByText('42')).toBeInTheDocument()
   })
 
+  it('shows an initial tutorial overlay explaining core gameplay', async () => {
+    render(<App api={createTestApi()} />)
+
+    const tutorial = await screen.findByRole('dialog', { name: 'Tutorial inicial' })
+
+    expect(within(tutorial).getByRole('heading', { name: 'Tutorial inicial' })).toBeInTheDocument()
+    expect(within(tutorial).getByText(/Kanban/i)).toBeInTheDocument()
+    expect(within(tutorial).getByText(/Selecione um card e um dev/i)).toBeInTheDocument()
+    expect(within(tutorial).getByText(/PDCA/i)).toBeInTheDocument()
+    expect(within(tutorial).getByRole('heading', { name: 'Andon' })).toBeInTheDocument()
+    expect(within(tutorial).getByRole('button', { name: 'Começar partida' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Kanban operacional' })).toBeInTheDocument()
+  })
+
+  it('lets the player close the initial tutorial and keep playing', async () => {
+    const user = userEvent.setup()
+    render(<App api={createTestApi()} />)
+
+    const tutorial = await screen.findByRole('dialog', { name: 'Tutorial inicial' })
+    await user.click(within(tutorial).getByRole('button', { name: 'Começar partida' }))
+
+    expect(screen.queryByRole('dialog', { name: 'Tutorial inicial' })).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Kanban operacional' })).toBeInTheDocument()
+  })
+
   it('opens Hall of Kaizen with final metrics and badges', async () => {
     const user = userEvent.setup()
     render(<App api={createTestApi()} />)

@@ -204,12 +204,15 @@ export function App({ api }: AppProps) {
           <Award aria-hidden="true" />
           Hall of Kaizen
         </button>
+        <button onClick={() => setShowOnboarding(true)} title="Abrir tutorial de como jogar" type="button">
+          <CheckCircle2 aria-hidden="true" />
+          Tutorial
+        </button>
       </nav>
 
       {viewMode === 'ops' ? (
         <div className="ops-grid">
           <section className="left-rail">
-            {showOnboarding && game.sprint <= 2 ? <OnboardingPanel onDismiss={() => setShowOnboarding(false)} /> : null}
             <MetricsPanel metrics={lastMetrics} game={game} />
             <ClientsPanel game={game} />
             <EventsPanel events={game.pending_events} />
@@ -256,6 +259,8 @@ export function App({ api }: AppProps) {
         <HallPanel hall={hall} game={game} onRestart={startFreshGame} />
       )}
 
+      {showOnboarding ? <OnboardingPanel sprint={game.sprint} onDismiss={() => setShowOnboarding(false)} /> : null}
+
       <footer className="command-bar">
         <div>
           <strong>{notice}</strong>
@@ -283,23 +288,77 @@ export function App({ api }: AppProps) {
 }
 
 type OnboardingPanelProps = {
+  sprint: number
   onDismiss(): void
 }
 
-function OnboardingPanel({ onDismiss }: OnboardingPanelProps) {
+function OnboardingPanel({ sprint, onDismiss }: OnboardingPanelProps) {
   return (
-    <section className="panel onboarding-panel" aria-label="Tutorial inicial">
-      <div className="panel-title-row">
-        <PanelTitle icon={<CheckCircle2 aria-hidden="true" />} title="Tutorial inicial" />
-        <button onClick={onDismiss} title="Ocultar tutorial inicial nesta partida" type="button">
-          Ocultar
-        </button>
+    <section className="onboarding-backdrop" aria-labelledby="onboarding-title" aria-modal="true" role="dialog">
+      <div className="onboarding-dialog">
+        <div className="onboarding-header">
+          <div>
+            <span className="eyebrow">Sprint {sprint} · guia rapido</span>
+            <h2 id="onboarding-title">Tutorial inicial</h2>
+          </div>
+          <button className="secondary-action" onClick={onDismiss} title="Fechar tutorial e continuar no jogo" type="button">
+            Fechar
+          </button>
+        </div>
+
+        <div className="onboarding-body">
+          <section className="tutorial-section">
+            <h3>
+              <KanbanSquare aria-hidden="true" />
+              Fluxo Kanban
+            </h3>
+            <p>Puxe demanda do Backlog para Analise, Dev, QA e Done. Respeite WIP e use o botao Mover em cada card.</p>
+          </section>
+          <section className="tutorial-section">
+            <h3>
+              <Users aria-hidden="true" />
+              Card e dev
+            </h3>
+            <p>Selecione um card e um dev. Depois use Alocar para colocar a pessoa certa no trabalho ativo.</p>
+          </section>
+          <section className="tutorial-section">
+            <h3>
+              <Sparkles aria-hidden="true" />
+              Kaizen / PDCA
+            </h3>
+            <p>Use pontos Kaizen para agir: planeje a mudanca, aplique, confira metricas e ajuste a proxima sprint.</p>
+          </section>
+          <section className="tutorial-section">
+            <h3>
+              <AlertTriangle aria-hidden="true" />
+              Andon
+            </h3>
+            <p>Alertas Andon mostram risco operacional: caixa, burnout, qualidade, prazo ou oportunidade de melhoria.</p>
+          </section>
+          <section className="tutorial-section">
+            <h3>
+              <Gauge aria-hidden="true" />
+              Metricas
+            </h3>
+            <p>Acompanhe OEE, lead time, cycle time, throughput, bugs e custo fixo antes de encerrar a sprint.</p>
+          </section>
+          <section className="tutorial-section">
+            <h3>
+              <Play aria-hidden="true" />
+              Confirmacao de sprint
+            </h3>
+            <p>Encerrar sprint processa custos, entrega, bugs e eventos no backend. Confirme so quando estiver pronto.</p>
+          </section>
+        </div>
+
+        <div className="onboarding-footer">
+          <p>O jogo ja esta carregado atras deste painel. Voce pode reabrir este tutorial pela aba Tutorial.</p>
+          <button className="primary-action" onClick={onDismiss} title="Fechar tutorial inicial e comecar a jogar" type="button">
+            <Play aria-hidden="true" />
+            Começar partida
+          </button>
+        </div>
       </div>
-      <ol>
-        <li>Selecione um card e mova pelo fluxo Backlog, Analise, Dev, QA e Done.</li>
-        <li>Alocar dev em card ativo reduz risco de atraso, bug e perda de reputacao.</li>
-        <li>Encerrar sprint e irreversivel: o backend calcula custo, entrega, bugs, OEE e eventos.</li>
-      </ol>
     </section>
   )
 }
