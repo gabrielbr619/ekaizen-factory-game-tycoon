@@ -172,10 +172,10 @@ export function App({ api }: AppProps) {
           {game.andon_alerts.length === 0 ? (
             <span className="andon-empty">Linha estavel, sem alertas ativos.</span>
           ) : (
-            game.andon_alerts.map((alert) => (
+            game.andon_alerts.map((alert, index) => (
               <span
                 className={`andon-alert andon-${alert.severity}`}
-                key={`${alert.code}-${alert.message}`}
+                key={`${alert.code}-${index}-${alert.message}`}
                 title="Andon mostra situacoes que precisam de decisao antes que virem perda."
               >
                 {alert.message}

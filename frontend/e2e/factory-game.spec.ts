@@ -8,6 +8,9 @@ test('plays a complete factory management flow', async ({ page }) => {
   await expect(page.getByText('backend e a fonte autoritativa')).toBeVisible()
 
   await page.getByRole('button', { name: /Mover/ }).first().click()
+  await expect(page.getByText(/enviado para Analise/)).toBeVisible()
+  await page.getByLabel('Analise').locator('.card-select').first().click()
+  await expect(page.getByRole('button', { name: /Alocar/ }).first()).toBeEnabled()
   await page.getByRole('button', { name: /Alocar/ }).first().click()
 
   for (let sprint = 0; sprint < 5; sprint += 1) {
@@ -27,4 +30,3 @@ test('plays a complete factory management flow', async ({ page }) => {
   await expect(page.getByText(/Veredito:/)).toBeVisible()
   await expect(page.getByText('Top Kaizens')).toBeVisible()
 })
-

@@ -8,7 +8,7 @@ import {
   hallOfKaizenSchema,
 } from './types'
 
-const apiBaseUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
+const apiBaseUrl = import.meta.env.VITE_API_URL ?? ''
 const errorPayloadSchema = z.object({ detail: z.string() })
 
 function commandId(): string {
