@@ -67,7 +67,7 @@ describe('Factory game UI', () => {
     expect(oeeMetric).toHaveAccessibleDescription(/Qualidade operacional geral/i)
     expect(within(oeeMetric).getAllByText(/Qualidade operacional geral/i)).toHaveLength(1)
 
-    fireEvent.focusIn(oeeMetric)
+    fireEvent.pointerEnter(oeeMetric)
     await waitFor(() => {
       expect(
         Array.from(document.body.querySelectorAll('.tooltip-content[data-open="true"]')).some((tooltip) =>
@@ -118,6 +118,7 @@ describe('Factory game UI', () => {
     expect(within(tutorial).getByText(/Hall of Kaizen com veredito positivo/i)).toBeInTheDocument()
     expect(within(tutorial).getByRole('button', { name: 'Começar partida' })).toBeInTheDocument()
     await waitFor(() => expect(within(tutorial).getByRole('button', { name: 'Começar partida' })).toHaveFocus())
+    expect(document.body.querySelector('.tooltip-content[data-open="true"]')).not.toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Kanban operacional' })).toBeInTheDocument()
   })
 

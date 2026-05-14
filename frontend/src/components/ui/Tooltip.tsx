@@ -27,6 +27,7 @@ export function Tooltip({ describes = true, id, text }: TooltipProps) {
   const anchorRef = useRef<HTMLSpanElement>(null)
   const tooltipRef = useRef<HTMLSpanElement>(null)
   const hostRef = useRef<HTMLElement | null>(null)
+  const keyboardNavigationRef = useRef(false)
   const reactId = useId()
   const [open, setOpen] = useState(false)
   const [position, setPosition] = useState<TooltipPosition>({
@@ -70,27 +71,43 @@ export function Tooltip({ describes = true, id, text }: TooltipProps) {
       setOpen(true)
     }
 
+    const handleFocusIn = () => {
+      if (keyboardNavigationRef.current) showTooltip()
+    }
+
     const handleFocusOut = (event: FocusEvent) => {
       if (event.relatedTarget instanceof Node && host.contains(event.relatedTarget)) return
       hideTooltip()
     }
 
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Tab') keyboardNavigationRef.current = true
+    }
+
+    const handlePointerDown = () => {
+      keyboardNavigationRef.current = false
+    }
+
     host.addEventListener('pointerenter', showTooltip)
     host.addEventListener('pointermove', updatePosition)
     host.addEventListener('pointerleave', hideTooltip)
-    host.addEventListener('focusin', showTooltip)
+    host.addEventListener('focusin', handleFocusIn)
     host.addEventListener('focusout', handleFocusOut)
     host.addEventListener('click', hideTooltip)
     host.addEventListener('pointerdown', hideTooltip)
+    document.addEventListener('keydown', handleKeyDown)
+    document.addEventListener('pointerdown', handlePointerDown)
 
     return () => {
       host.removeEventListener('pointerenter', showTooltip)
       host.removeEventListener('pointermove', updatePosition)
       host.removeEventListener('pointerleave', hideTooltip)
-      host.removeEventListener('focusin', showTooltip)
+      host.removeEventListener('focusin', handleFocusIn)
       host.removeEventListener('focusout', handleFocusOut)
       host.removeEventListener('click', hideTooltip)
       host.removeEventListener('pointerdown', hideTooltip)
+      document.removeEventListener('keydown', handleKeyDown)
+      document.removeEventListener('pointerdown', handlePointerDown)
     }
   }, [reactId, text])
 
