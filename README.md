@@ -104,10 +104,10 @@ O endpoint de eventos usa Server-Sent Events como canal minimo de tempo real. El
 
 ## Fora de escopo ou pendente
 
-- **URL publica validada**: o PDF exige URL publica funcional no envio. Este README nao declara uma URL ate que ela seja validada com healthcheck, criacao de partida e fluxo basico online.
 - **Modelo relacional normalizado**: a persistencia usa SQLite relacional com snapshot de estado e comandos idempotentes. A evolucao natural e normalizar partidas, cards, devs, clientes, eventos e comandos para consultas analiticas mais ricas.
 - **Eventos aleatorios com efeitos agregados**: cliente urgente, pedido de aumento, bug retroativo, headhunter, conferencia, auditoria OEE, tendencia de mercado e indicacao alteram o estado da partida e aparecem via Andon/historico. O tradeoff e que algumas respostas ainda sao agregadas no processamento de sprint, em vez de comandos dedicados para cada evento.
 - **Drag and drop completo**: comandos por botoes acessiveis sao aceitaveis quando o fluxo e claro e enviado ao servidor. A evolucao natural e adicionar drag and drop preservando os mesmos comandos backend.
+- **Concorrencia na mesma partida**: o jogo e single-player por sessao e suporta multiplas partidas em paralelo por `game_id` e cookie assinado. Nao tenta resolver edicao concorrente da mesma partida em varias abas como um jogo multiplayer.
 
 ## Como rodar verificacoes locais
 

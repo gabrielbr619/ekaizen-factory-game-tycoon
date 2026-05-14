@@ -23,7 +23,7 @@ Este documento registra a auditoria final de gates nao-deploy. Ele nao declara U
 
 | Caso do PDF | Testes existentes |
 | --- | --- |
-| OEE | `test_oee_calculation` cobre performance e qualidade; `test_oee_availability_drops_when_dev_moral_is_below_burnout_threshold` cobre disponibilidade afetada por moral baixa. |
+| OEE | `test_oee_calculation` cobre performance e qualidade; `test_oee_availability_drops_when_dev_moral_is_below_burnout_threshold` cobre disponibilidade afetada por moral baixa; `test_oee_quality_drops_when_production_bug_emerges_without_delivery` cobre bug em producao mesmo sem entrega na sprint. |
 | Processamento de sprint | `test_process_sprint_applies_progress_and_moral_drain`, `test_moving_completed_qa_card_to_done_pays_value_once`, `test_active_clients_generate_recurring_revenue` e testes de atraso/cancelamento cobrem efeitos centrais de sprint. |
 | Lei de Brooks | `test_junior_alone_on_large_card_makes_no_progress`, `test_pleno_needs_senior_mentor_on_large_card` e `test_brooks_law_overstaffing_increases_moral_drain_and_bug_risk` cobrem senioridade, mentoria e custo de coordenação. |
 | Drenagem de moral | `test_process_sprint_applies_progress_and_moral_drain`, `test_qa_worker_matches_qa_column`, `test_rest_space_kaizen_reduces_active_work_moral_drain` e cenarios de God-tier cobrem impacto de trabalho, estagio, Kaizen e retenção. |
