@@ -4,6 +4,7 @@
 worktrees
 worktrees/
 .tools/
+.runtime/
 
 # Python
 backend/.venv/

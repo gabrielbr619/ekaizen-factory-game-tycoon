@@ -8,7 +8,9 @@ O backend FastAPI e a fonte autoritativa do estado e das regras. O frontend Vite
 
 Este repositorio contem uma versao integrada e jogavel do desafio. O backend FastAPI persiste partidas em SQLite, expoe os endpoints principais, processa as regras de dominio e e a fonte autoritativa do estado. O frontend Vite/React consome a API real, renderiza o jogo como primeira tela e envia comandos para o backend.
 
-URL publica do deploy: **pendente de preenchimento antes do envio ao avaliador**.
+URL publica do deploy: https://promotions-technologies-pastor-wash.trycloudflare.com
+
+Repositorio publico: https://github.com/gabrielbr619/ekaizen-factory-game-tycoon
 
 ## Como rodar com Docker Compose
 
@@ -69,7 +71,7 @@ Mutações passam por `POST /games/{game_id}/commands` com `command_id` no corpo
 
 ## Fora de escopo ou pendente
 
-- Deploy publico ainda nao configurado; a URL acima deve ser preenchida antes do envio.
+- O deploy publico atual usa um tunnel Cloudflare para expor a versao integrada localmente. Para producao real, a evolucao recomendada e publicar frontend e backend em infraestrutura persistente.
 - A persistencia SQLite e relacional no arquivo de banco, mas o estado de jogo ainda e salvo como snapshot.
 - Algumas regras avancadas do PDF foram simplificadas para priorizar fluxo jogavel, determinismo e separacao backend/frontend dentro do prazo.
 
@@ -111,4 +113,4 @@ Opcao simples sugerida para a entrega:
 - Backend: Render, Railway, Fly.io ou VPS com Docker Compose.
 - Banco: SQLite em volume persistente no backend para a versao do desafio; PostgreSQL seria a evolucao recomendada para producao real.
 
-Antes do envio ao avaliador, preencher a URL publica funcional e validar que `GET /healthz`, criacao de partida e fluxo basico do jogo funcionam no ambiente publicado.
+A URL publica acima foi validada com `GET /healthz`, criacao de partida e fluxo basico do jogo.
