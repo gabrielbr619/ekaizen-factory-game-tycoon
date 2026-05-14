@@ -1,15 +1,34 @@
 import { expect, test } from '@playwright/test'
 
 test('plays a complete factory management flow', async ({ page }) => {
+  await page.route('**/games', async (route) => {
+    if (route.request().method() !== 'POST') {
+      await route.continue()
+      return
+    }
+
+    await route.continue({
+      postData: JSON.stringify({ seed: 4242 }),
+      headers: {
+        ...route.request().headers(),
+        'content-type': 'application/json',
+      },
+    })
+  })
+
   await page.goto('/')
 
   await expect(page.getByRole('heading', { name: 'eKaizen Factory Game Tycoon' })).toBeVisible()
   await expect(page.getByLabel('Kanban')).toContainText('Backlog')
   await expect(page.getByText('backend e a fonte autoritativa')).toBeVisible()
 
-  await page.getByRole('button', { name: /Mover/ }).first().click()
-  await expect(page.getByText(/enviado para Analise/)).toBeVisible()
-  await page.getByLabel('Analise').locator('.card-select').first().click()
+  const backlogCard = page.getByLabel('Backlog').locator('.work-card').first()
+  const cardTitle = await backlogCard.locator('strong').textContent()
+  expect(cardTitle).not.toBeNull()
+
+  await backlogCard.getByRole('button', { name: /Mover/ }).click()
+  await expect(page.getByLabel('Analise')).toContainText(cardTitle as string)
+  await page.getByLabel('Analise').getByText(cardTitle as string).click()
   await expect(page.getByRole('button', { name: /Alocar/ }).first()).toBeEnabled()
   await page.getByRole('button', { name: /Alocar/ }).first().click()
 
