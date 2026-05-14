@@ -86,7 +86,7 @@ describe('Factory game UI', () => {
 
     const eventsPanel = await screen.findByRole('region', { name: 'Eventos' })
 
-    expect(within(eventsPanel).getByText('Aguardando decisao')).toBeInTheDocument()
+    expect(within(eventsPanel).getByText('Eventos para reagir')).toBeInTheDocument()
     expect(within(eventsPanel).getByText(/Auditoria de OEE/i)).toBeInTheDocument()
     expect(within(eventsPanel).getByText('Ja aplicado no estado')).toBeInTheDocument()
     expect(within(eventsPanel).getByText(/Pipeline de deploy foi puxado/i)).toBeInTheDocument()

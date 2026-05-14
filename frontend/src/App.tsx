@@ -137,7 +137,7 @@ export function App({ api }: AppProps) {
       const result = await api.loadHallOfKaizen(state.id)
       setHall(result)
       setViewMode('hall')
-      setNotice('Hall of Kaizen carregado.')
+      setNotice('Hall of Kaizen carregado com veredito, metricas, MVPs e historico.')
     } catch (error) {
       setNotice(error instanceof Error ? error.message : 'Falha ao carregar Hall of Kaizen.')
     } finally {
@@ -171,7 +171,9 @@ export function App({ api }: AppProps) {
         busy={busy}
         confirmSprint={confirmSprint}
         onCancelSprint={() => setConfirmSprint(false)}
-        onConfirmSprint={() => sendCommand({ type: 'process-sprint' }, 'Sprint processada.')}
+        onConfirmSprint={() =>
+          sendCommand({ type: 'process-sprint' }, 'Sprint processada. Confira metricas, eventos e historico antes da proxima decisao.')
+        }
         onRequestSprint={() => setConfirmSprint(true)}
         onRestart={startFreshGame}
         onToggleTheme={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
@@ -236,7 +238,7 @@ export function App({ api }: AppProps) {
             onSelectCard={setSelectedCardId}
             onInvalidDrop={() => setNotice(sequentialFlowNotice)}
             onMoveCard={(card, target) =>
-              sendCommand({ type: 'move-card', card_id: card.id, target }, `${card.title} enviado para ${columnLabel(target)}.`)
+              sendCommand({ type: 'move-card', card_id: card.id, target }, `${card.title} movido para ${columnLabel(target)}.`)
             }
           />
 
@@ -250,12 +252,20 @@ export function App({ api }: AppProps) {
                 sendCommand(
                   { type: 'allocate-dev', dev_id: dev.id, card_id: cardId },
                   cardId === null
-                    ? `${dev.name} removido do card conforme comando do backend.`
-                    : `${dev.name} alocado conforme comando do backend.`,
+                    ? `${dev.name} removido do card selecionado.`
+                    : `${dev.name} alocado no card selecionado.`,
                 )
               }
             />
-            <HiringPanel game={game} onHire={(candidate) => sendCommand({ type: 'hire-candidate', candidate_id: candidate.id }, `${candidate.name} contratado.`)} />
+            <HiringPanel
+              game={game}
+              onHire={(candidate) =>
+                sendCommand(
+                  { type: 'hire-candidate', candidate_id: candidate.id },
+                  `${candidate.name} contratado; onboarding sera considerado pelo backend.`,
+                )
+              }
+            />
             <KaizenPanel
               game={game}
               selectedDev={selectedDev}

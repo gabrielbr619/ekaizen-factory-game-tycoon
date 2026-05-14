@@ -80,12 +80,13 @@ export function OnboardingPanel({ sprint, onDismiss }: OnboardingPanelProps) {
               Como vencer
             </h3>
             <p>
-              Objetivo: manter a software house viva, proteger Budget e lucro acumulado, melhorar Reputacao, OEE,
-              Lead Time, Throughput e Bugs ate chegar ao Hall of Kaizen com veredito positivo.
+              Objetivo: chegar ao sprint 35 com a software house viva, Budget saudavel, lucro acumulado positivo,
+              Reputacao alta, OEE melhorando, Lead Time menor, Throughput estavel e poucos bugs em producao.
             </p>
             <p>
               Na pratica: entregue cards no prazo, evite bugs em producao, mantenha devs com moral e use Kaizens antes
-              dos gargalos virarem crise.
+              dos gargalos virarem crise. O Hall of Kaizen com veredito positivo depende desse equilibrio e mostra
+              o que mais impactou sua partida.
             </p>
           </section>
           <section className="tutorial-section">

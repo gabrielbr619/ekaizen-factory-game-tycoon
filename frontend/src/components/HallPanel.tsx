@@ -33,7 +33,9 @@ export function HallPanel({ hall, game, onRestart }: HallPanelProps) {
         <div>
           <Award aria-hidden="true" />
           <h2>Hall of Kaizen</h2>
-          <p>Veredito: {verdictLabel(source.verdict)}</p>
+          <p>
+            {hall === null ? 'Placar parcial da partida atual' : `Veredito: ${verdictLabel(source.verdict)}`}
+          </p>
         </div>
         <button onClick={onRestart} title="Iniciar uma nova partida" type="button">
           <RotateCcw aria-hidden="true" />

@@ -79,10 +79,10 @@ export function EventsPanel({ events, timeline }: EventsPanelProps) {
       <PanelTitle icon={<Activity aria-hidden="true" />} title="Eventos" />
       <div className="event-groups">
         <div>
-          <h3>Aguardando decisao</h3>
+          <h3>Eventos para reagir</h3>
           <ul className="event-list event-list-pending">
             {events.length === 0 ? (
-              <li>Nenhuma decisao pendente informada pelo servidor.</li>
+              <li>Nenhum evento pendente informado pelo servidor.</li>
             ) : (
               events.map((event) => <li key={event}>{event}</li>)
             )}

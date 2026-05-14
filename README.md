@@ -38,6 +38,8 @@ URLs locais:
 
 ## Como rodar com Docker Compose
 
+Este e o caminho recomendado para avaliacao local: um comando sobe frontend, backend e persistencia, e o jogo fica disponivel em `http://localhost`.
+
 Pre-requisitos:
 
 - Docker Desktop ou Docker Engine com Docker Compose v2.

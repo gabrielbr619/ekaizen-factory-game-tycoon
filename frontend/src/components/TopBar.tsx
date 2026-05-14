@@ -75,6 +75,7 @@ export function TopBar({
               ) : (
                 <p>O backend nao informou Andons ativos para esta sprint.</p>
               )}
+              <p>Confirmar fecha a sprint atual e processa custos, progresso, QA, bugs, eventos e pagamentos.</p>
             </div>
           </div>
         ) : (
