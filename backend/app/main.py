@@ -1,40 +1,22 @@
 from __future__ import annotations
 
 import asyncio
-import hashlib
-import hmac
 import json
 import os
 from collections.abc import AsyncIterator
-from dataclasses import fields, is_dataclass
-from enum import Enum
 from pathlib import Path
 from typing import Annotated
 
 from fastapi import Cookie, FastAPI, Header, HTTPException, Response
-from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
-from app.api.schemas import (
-    AllocateDevPayload,
-    ApplyKaizenPayload,
-    CommandRequest,
-    CreateGameRequest,
-    HireCandidatePayload,
-    MoveCardPayload,
-    ProcessSprintPayload,
-)
-from app.domain.engine import (
-    allocate_dev,
-    apply_kaizen,
-    create_game,
-    hire_candidate,
-    move_card,
-    process_sprint,
-    top_kaizens,
-)
-from app.domain.models import GameState
+from app.api.command_dispatcher import apply_command_payload
+from app.api.hall import build_hall_of_kaizen_response
+from app.api.schemas import CommandRequest, CreateGameRequest
+from app.api.security import hash_command, is_valid_session, sign_session
+from app.api.serialization import encode_game
+from app.domain.engine import create_game
 from app.persistence import GameRepository
 
 SECRET = os.getenv("SESSION_SECRET", "dev-secret-change-me")
@@ -65,7 +47,12 @@ def healthz() -> dict[str, str]:
 def start_game(body: CreateGameRequest, response: Response) -> object:
     game = create_game(body.seed)
     repo.save(game)
-    response.set_cookie("ekaizen_session", sign_session(game.id), httponly=True, samesite="lax")
+    response.set_cookie(
+        "ekaizen_session",
+        sign_session(game.id, SECRET),
+        httponly=True,
+        samesite="lax",
+    )
     return encode_game(game)
 
 
@@ -95,17 +82,7 @@ def execute_command(
         game = repo.get(game_id)
         if game is None:
             raise HTTPException(status_code=404, detail="Game not found")
-        payload = body.payload
-        if isinstance(payload, MoveCardPayload):
-            game = move_card(game, payload.card_id, payload.target)
-        elif isinstance(payload, AllocateDevPayload):
-            game = allocate_dev(game, payload.dev_id, payload.card_id)
-        elif isinstance(payload, HireCandidatePayload):
-            game = hire_candidate(game, payload.candidate_id)
-        elif isinstance(payload, ApplyKaizenPayload):
-            game = apply_kaizen(game, payload.kaizen, payload.target_id)
-        elif isinstance(payload, ProcessSprintPayload):
-            game = process_sprint(game)
+        game = apply_command_payload(game, body.payload)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     repo.save_idempotent(game, command_id, command_hash)
@@ -135,68 +112,11 @@ def hall_of_kaizen(game_id: str, ekaizen_session: Annotated[str | None, Cookie()
     game = repo.get(game_id)
     if game is None:
         raise HTTPException(status_code=404, detail="Game not found")
-    metrics = game.metrics_history[-1] if game.metrics_history else None
-    dev_mvp = max(game.developers, key=lambda dev: dev.clean_cards_delivered)
-    return {
-        "verdict": game.verdict.value,
-        "accumulated_profit": game.accumulated_profit,
-        "budget": game.budget,
-        "oee_avg": round(
-            sum(item.oee for item in game.metrics_history) / max(1, len(game.metrics_history)), 3
-        ),
-        "lead_time_avg": metrics.lead_time_avg if metrics is not None else 0,
-        "throughput_avg": round(
-            sum(item.delivered_cards for item in game.metrics_history)
-            / max(1, len(game.metrics_history)),
-            2,
-        ),
-        "top_kaizens": jsonable_encoder(top_kaizens(game)),
-        "sprint_mvp": best_sprint(game),
-        "dev_mvp": dev_mvp.name,
-        "badges": game.badges,
-        "timeline": jsonable_encoder(game.timeline[-12:]),
-    }
-
-
-def best_sprint(game: GameState) -> dict[str, int | float]:
-    metrics = max(
-        game.metrics_history,
-        key=lambda item: (item.throughput_value, item.oee),
-        default=None,
-    )
-    if metrics is None:
-        return {"sprint": 0, "throughput_value": 0, "oee": 0.0}
-    return {
-        "sprint": metrics.sprint,
-        "throughput_value": metrics.throughput_value,
-        "oee": metrics.oee,
-    }
-
-
-def sign_session(game_id: str) -> str:
-    digest = hmac.new(SECRET.encode(), game_id.encode(), hashlib.sha256).hexdigest()
-    return f"{game_id}.{digest}"
-
-
-def hash_command(payload: object) -> str:
-    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"))
-    return hashlib.sha256(encoded.encode()).hexdigest()
+    return build_hall_of_kaizen_response(game)
 
 
 def require_session(game_id: str, cookie: str | None) -> None:
     if cookie is None:
         raise HTTPException(status_code=401, detail="Missing session cookie")
-    if not hmac.compare_digest(cookie, sign_session(game_id)):
+    if not is_valid_session(game_id, cookie, SECRET):
         raise HTTPException(status_code=401, detail="Invalid session cookie")
-
-
-def encode_game(value: object) -> object:
-    if isinstance(value, Enum):
-        return value.value
-    if is_dataclass(value) and not isinstance(value, type):
-        return {field.name: encode_game(getattr(value, field.name)) for field in fields(value)}
-    if isinstance(value, list):
-        return [encode_game(item) for item in value]
-    if isinstance(value, dict):
-        return {str(key): encode_game(item) for key, item in value.items()}
-    return value
