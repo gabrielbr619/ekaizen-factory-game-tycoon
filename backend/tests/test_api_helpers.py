@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import json
+import sqlite3
+from contextlib import closing
 from pathlib import Path
 
 import test_domain_engine as domain_tests
@@ -10,7 +13,16 @@ from app.api.schemas import ProcessSprintPayload
 from app.api.security import hash_command, sign_session
 from app.api.serialization import encode_game
 from app.domain.engine import create_game
-from app.domain.models import Column
+from app.domain.models import (
+    CardSize,
+    Column,
+    KaizenImpact,
+    KaizenType,
+    MarketTrend,
+    ScheduledProductionBug,
+    Specialty,
+    SprintMetrics,
+)
 from app.persistence import GameRepository
 
 
@@ -88,6 +100,93 @@ def test_save_idempotent_rejects_duplicate_key_with_different_hash(tmp_path: Pat
         assert str(exc) == "Idempotency-Key reutilizado com payload diferente."
     else:
         raise AssertionError("Expected duplicate idempotency key to be rejected")
+
+
+def test_persistence_saves_new_game_state_as_structured_json_text(tmp_path: Path) -> None:
+    db_path = tmp_path / "game.sqlite3"
+    repo = GameRepository(db_path)
+    game = create_game(123)
+
+    repo.save(game)
+
+    with closing(sqlite3.connect(db_path)) as conn, conn:
+        row = conn.execute("SELECT state FROM games WHERE id = ?", (game.id,)).fetchone()
+
+    assert row is not None
+    assert isinstance(row[0], str)
+    payload = json.loads(row[0])
+    assert payload["id"] == game.id
+    assert payload["cards"][0]["column"] == "backlog"
+    assert payload["developers"][0]["specialty"] == "backend"
+
+
+def test_persistence_json_roundtrip_preserves_full_game_state(tmp_path: Path) -> None:
+    repo = GameRepository(tmp_path / "game.sqlite3")
+    game = create_game(123)
+    game.active_kaizens = [KaizenType.REST_SPACE, KaizenType.HEIJUNKA]
+    game.metrics_history = [
+        SprintMetrics(
+            sprint=1,
+            delivered_cards=2,
+            throughput_value=8_000,
+            oee=0.75,
+            lead_time_avg=2.5,
+            bugs_in_production=1,
+            heijunka_bonus=500,
+            cycle_time_by_column={"analysis": 1.0, "qa": 2.0},
+        )
+    ]
+    game.cards[0].cycle_times = {"analysis": 1, "development": 2}
+    game.scheduled_production_bugs = [
+        ScheduledProductionBug(
+            source_card_id="card-1",
+            source_title="Dashboard OEE",
+            client_id="c1",
+            size=CardSize.M,
+            required_specialties=[Specialty.BACKEND, Specialty.QA],
+            due_sprint=4,
+        )
+    ]
+    game.kaizen_impacts = [
+        KaizenImpact(
+            kaizen=KaizenType.REST_SPACE,
+            label="Espaco de descanso",
+            before=40.0,
+            after=52.0,
+            delta=12.0,
+        )
+    ]
+    game.market_trends = [MarketTrend(specialty=Specialty.DEVOPS, expires_after_sprint=7)]
+
+    repo.save(game)
+    loaded = repo.get(game.id)
+
+    assert loaded == game
+
+
+def test_persistence_idempotent_records_use_json_and_return_existing_state(
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "game.sqlite3"
+    repo = GameRepository(db_path)
+    original = create_game(123)
+    updated = apply_command_payload(original, ProcessSprintPayload(type="process-sprint"))
+    command_hash = hash_command({"type": "process-sprint"})
+
+    first = repo.save_idempotent(original, "same-command", command_hash)
+    second = repo.save_idempotent(updated, "same-command", command_hash)
+
+    with closing(sqlite3.connect(db_path)) as conn, conn:
+        row = conn.execute(
+            "SELECT state FROM commands WHERE game_id = ? AND command_id = ?",
+            (original.id, "same-command"),
+        ).fetchone()
+
+    assert first == original
+    assert second == original
+    assert row is not None
+    assert isinstance(row[0], str)
+    assert json.loads(row[0])["sprint"] == original.sprint
 
 
 def test_targeted_api_suite_keeps_domain_coverage_gate_meaningful() -> None:
